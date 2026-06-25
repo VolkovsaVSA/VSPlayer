@@ -1,17 +1,16 @@
 # VSPlayer
 
-VSPlayer is the media player used by the **TRASSIR Mobile** iOS app. It is a fork of
-[KSPlayer](https://github.com/kingslay/KSPlayer) (an FFmpeg-based player built on top of
-[FFmpegKit](https://github.com/kingslay/FFmpegKit)) and is distributed as a Swift Package.
+VSPlayer is an FFmpeg-based media player for Apple platforms, distributed as a Swift Package. It
+is a fork of [KSPlayer](https://github.com/kingslay/KSPlayer) (built on top of
+[FFmpegKit](https://github.com/kingslay/FFmpegKit)).
 
 ## Why a fork
 
-The fork carries project-specific fixes for cloud video surveillance playback that are not
-present upstream. The first one:
+The fork carries fixes that are not present upstream. The first one:
 
 ### Video-only fallback for malformed audio in HLS archive
 
-Some cameras deliver an HLS archive segment whose audio track is broken
+Some HLS streams contain a broken audio track
 (`aac, 0 channels, unspecified sample rate`). In stock KSPlayer such a track is still enabled:
 it never decodes (its decoded-frame count stays at `0`), and because the audio clock is the
 master clock, the video clock waits for it forever and playback hangs in `buffering` — on both

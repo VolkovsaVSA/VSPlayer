@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-06-25
 
 First release of VSPlayer — a fork of [KSPlayer](https://github.com/kingslay/KSPlayer)
-maintained for the **TRASSIR Mobile** iOS app and distributed as a Swift Package.
+distributed as a Swift Package.
 
 ### Added
 - Swift Package Manager distribution of the `VSPlayer` library product.

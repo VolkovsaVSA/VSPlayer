@@ -43,6 +43,9 @@ let package = Package(
 )
 
 package.dependencies += [
-    // Pin FFmpegKit to an exact version so the binary stays frozen (matches the team's pod pinning).
-    .package(url: "https://github.com/kingslay/FFmpegKit.git", exact: "6.1.3"),
+    // Forked FFmpegKit (kingslay/FFmpegKit @ 6.1.3) with a single fix: the invalid
+    // CFBundleIdentifier of `libshaderc_combined` is sanitized (`_` -> `-`) so Xcode /
+    // App Store validation passes without a runtime build-phase workaround.
+    //
+    .package(url: "https://github.com/VolkovsaVSA/FFmpegKit.git", exact: "6.1.3"),
 ]

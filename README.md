@@ -45,8 +45,11 @@ Then:
 import VSPlayer
 ```
 
-The FFmpeg backend (`FFmpegKit`) is pinned to the exact version `6.1.3` and is resolved
-automatically as a transitive Swift Package dependency.
+The FFmpeg backend is a fork — [`VolkovsaVSA/FFmpegKit`](https://github.com/VolkovsaVSA/FFmpegKit)
+pinned to the exact version `6.1.3` — and is resolved automatically as a transitive Swift Package
+dependency. The fork only sanitizes an invalid `CFBundleIdentifier` in the prebuilt
+`libshaderc_combined` framework (`_` -> `-`) so Xcode / App Store validation passes; the FFmpeg
+binaries are unchanged from upstream `6.1.3`.
 
 ## Versioning
 
@@ -56,6 +59,8 @@ Releases.
 - `main` — stable, released, tagged.
 - `develop` — integration branch for development.
 - feature/release branches (for example `v0_1`) branch off `develop`.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 

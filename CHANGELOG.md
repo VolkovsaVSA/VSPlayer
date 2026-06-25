@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to VSPlayer are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-06-25
+
+First release of VSPlayer — a fork of [KSPlayer](https://github.com/kingslay/KSPlayer)
+maintained for the **TRASSIR Mobile** iOS app and distributed as a Swift Package.
+
+### Added
+- Swift Package Manager distribution of the `VSPlayer` library product.
+- Video-only fallback for malformed audio in HLS archive: audio tracks with an invalid
+  descriptor (zero channels or unspecified sample rate) are skipped in
+  `MEPlayerItem.createCodec`, so the video clock becomes the master clock and playback no
+  longer hangs in `buffering` on such streams. Streams with valid audio are unaffected.
+
+### Changed
+- Renamed all `KS*` symbols to `VS*` across the package (module, types and options).
+- FFmpeg backend switched to the fork
+  [`VolkovsaVSA/FFmpegKit`](https://github.com/VolkovsaVSA/FFmpegKit) pinned to the exact
+  version `6.1.3` (resolved transitively).
+
+### Fixed
+- Invalid `CFBundleIdentifier` in the prebuilt `libshaderc_combined` framework
+  (`com.kintan.ksplayer.libshaderc_combined` -> `...libshaderc-combined`), which made Xcode /
+  App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
+  forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
+
+[0.1.0]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.0

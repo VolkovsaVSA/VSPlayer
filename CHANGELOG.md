@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `LoadingState` exposes a public initializer so host apps can adjust playable state
-  (e.g. archive HLS video-only fallback in `TrassirVSOptions`).
+  (e.g. archive HLS video-only fallback).
 
 ## [0.1.4] - 2026-06-26
 

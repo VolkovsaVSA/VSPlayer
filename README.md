@@ -79,7 +79,7 @@ see `formatContextOptions` (for example `protocol_whitelist`) to restrict or ext
 | Buffering | `preferredForwardBufferDuration`, `maxBufferDuration`, `isSecondOpen` |
 | Seek | `isAccurateSeek`, `isSeekedAutoPlay`, `seekFlags` |
 | FFmpeg probe | `probesize`, `maxAnalyzeDuration`, `formatContextOptions`, `userAgent` |
-| Decode | `hardwareDecode`, `syncDecodeAudio`, `syncDecodeVideo`, `videoDisable` |
+| Decode | `hardwareDecode`, `syncDecodeAudio`, `syncDecodeVideo`, `videoDisable`, `audioDisable` |
 | Filters | `videoFilters`, `audioFilters`, `autoDeInterlace`, `autoRotate` |
 | Lifecycle | `isAutoPlay`, `isLoopPlay`, `canBackgroundPlay` |
 

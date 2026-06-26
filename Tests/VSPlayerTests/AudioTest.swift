@@ -14,8 +14,8 @@ class AudioTest: XCTestCase {
         XCTAssertEqual(channelLayout.channelLayout().u.mask == mask, true)
     }
 
-    private func assert(bitmap: AudioChannelBitmap, mask: UInt64) {
-        let channelLayout = AVAudioChannelLayout(layout: bitmap.channelLayout)
-        XCTAssertEqual(channelLayout.channelLayout().u.mask == mask, true)
+    func testAudioDisableDefaultsToFalse() {
+        let options = VSOptions()
+        XCTAssertFalse(options.audioDisable)
     }
 }

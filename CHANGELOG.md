@@ -5,6 +5,31 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-06-26
+
+### Fixed
+- `LoadingState` exposes a public initializer so host apps can adjust playable state
+  (e.g. archive HLS video-only fallback in `TrassirVSOptions`).
+
+## [0.1.4] - 2026-06-26
+
+### Fixed
+- When `audioDisable` is set, audio streams are not probed into `FFmpegAssetTrack` (avoids
+  `AudioFormatDescription err=-12710` and spurious `Resample` setup on corrupt AAC).
+- `mainClock()` always uses the video clock when `audioDisable` is true.
+- Audio route-change handling is skipped when `audioDisable` is true.
+
+## [0.1.3] - 2026-06-26
+
+### Added
+- `VSOptions.audioDisable` — skip opening/decoding audio entirely (video-only playback).
+- Runtime fallback: disable audio when packets arrive but no decodable frames are produced
+  while video is already decoding.
+
+### Fixed
+- `sourceDidOpened` skips `AudioEnginePlayer.prepare()` when the audio track has no
+  renderable `CMFormatDescription` (e.g. `AudioFormatDescription err=-12710`).
+
 ## [0.1.2] - 2026-06-26
 
 ### Fixed

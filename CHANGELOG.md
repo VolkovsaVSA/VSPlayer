@@ -5,6 +5,15 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-26
+
+### Fixed
+- Playback no longer stalls when a stream declares an audio track that cannot be decoded
+  (incomplete codec parameters after probe, e.g. zero channels or unspecified sample format).
+- Stricter audio-track validation when opening a media source.
+- Runtime fallback to video-only playback when an enabled audio track turns out to be
+  undecodable after the source is opened.
+
 ## [0.1.0] - 2026-06-25
 
 First release of VSPlayer — a fork of [KSPlayer](https://github.com/kingslay/KSPlayer)
@@ -12,10 +21,9 @@ distributed as a Swift Package.
 
 ### Added
 - Swift Package Manager distribution of the `VSPlayer` library product.
-- Video-only fallback for malformed audio in HLS archive: audio tracks with an invalid
-  descriptor (zero channels or unspecified sample rate) are skipped in
-  `MEPlayerItem.createCodec`, so the video clock becomes the master clock and playback no
-  longer hangs in `buffering` on such streams. Streams with valid audio are unaffected.
+- Video-only fallback for streams with a malformed audio track: tracks whose descriptor is
+  invalid at open time (zero channels or unspecified sample rate) are not enabled, so the
+  video clock drives playback instead of waiting forever on an empty audio buffer.
 
 ### Changed
 - Renamed all `KS*` symbols to `VS*` across the package (module, types and options).
@@ -29,4 +37,5 @@ distributed as a Swift Package.
   App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
   forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
 
+[0.1.1]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.1
 [0.1.0]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.0

@@ -275,22 +275,50 @@ public class AudioDescriptor: Equatable {
     fileprivate(set) var channel: AVChannelLayout
     fileprivate let sampleFormat: AVSampleFormat
     fileprivate var outChannel: AVChannelLayout
+    /// Raw values from FFmpeg before playback defaults are applied.
+    private let sourceSampleFormat: AVSampleFormat
+    private let sourceChannelCount: Int32
+    private let sourceSampleRate: Int32
 
     private convenience init() {
         self.init(sampleFormat: AV_SAMPLE_FMT_FLT, sampleRate: 48000, channel: AVChannelLayout.defaultValue)
     }
 
     convenience init(codecpar: AVCodecParameters) {
-        self.init(sampleFormat: AVSampleFormat(rawValue: codecpar.format), sampleRate: codecpar.sample_rate, channel: codecpar.ch_layout)
+        self.init(
+            sampleFormat: AVSampleFormat(rawValue: codecpar.format),
+            sampleRate: codecpar.sample_rate,
+            channel: codecpar.ch_layout,
+            sourceSampleFormat: AVSampleFormat(rawValue: codecpar.format),
+            sourceChannelCount: codecpar.ch_layout.nb_channels,
+            sourceSampleRate: codecpar.sample_rate
+        )
     }
 
     convenience init(frame: AVFrame) {
-        self.init(sampleFormat: AVSampleFormat(rawValue: frame.format), sampleRate: frame.sample_rate, channel: frame.ch_layout)
+        self.init(
+            sampleFormat: AVSampleFormat(rawValue: frame.format),
+            sampleRate: frame.sample_rate,
+            channel: frame.ch_layout,
+            sourceSampleFormat: AVSampleFormat(rawValue: frame.format),
+            sourceChannelCount: frame.ch_layout.nb_channels,
+            sourceSampleRate: frame.sample_rate
+        )
     }
 
-    init(sampleFormat: AVSampleFormat, sampleRate: Int32, channel: AVChannelLayout) {
+    init(
+        sampleFormat: AVSampleFormat,
+        sampleRate: Int32,
+        channel: AVChannelLayout,
+        sourceSampleFormat: AVSampleFormat? = nil,
+        sourceChannelCount: Int32? = nil,
+        sourceSampleRate: Int32? = nil
+    ) {
         self.channel = channel
         outChannel = channel
+        self.sourceSampleFormat = sourceSampleFormat ?? sampleFormat
+        self.sourceChannelCount = sourceChannelCount ?? channel.nb_channels
+        self.sourceSampleRate = sourceSampleRate ?? sampleRate
         if sampleRate <= 0 {
             self.sampleRate = 48000
         } else {
@@ -319,7 +347,15 @@ public class AudioDescriptor: Equatable {
 
     /// True when FFmpeg resolved enough parameters to decode and render this track.
     public var isDecodable: Bool {
-        sampleFormat != AV_SAMPLE_FMT_NONE && channel.nb_channels > 0 && sampleRate > 0
+        sourceSampleFormat != AV_SAMPLE_FMT_NONE && sourceChannelCount > 0 && sourceSampleRate > 0
+    }
+
+    /// Validates raw codec parameters from an opened stream.
+    static func hasDecodableCodecParameters(_ codecpar: AVCodecParameters) -> Bool {
+        codecpar.codec_id != AV_CODEC_ID_NONE
+            && codecpar.format != AV_SAMPLE_FMT_NONE.rawValue
+            && codecpar.ch_layout.nb_channels > 0
+            && codecpar.sample_rate > 0
     }
 
     static func audioFormat(sampleFormat: AVSampleFormat, sampleRate: Int32, outChannel: inout AVChannelLayout, channelCount: AVAudioChannelCount) -> AVAudioFormat {

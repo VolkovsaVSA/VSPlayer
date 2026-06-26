@@ -403,10 +403,7 @@ extension MEPlayerItem {
         let index = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, wantedStreamNb, videoIndex, nil, 0)
         if index >= 0,
            let first = audios.first(where: { $0.trackID == index }),
-           first.codecpar.codec_id != AV_CODEC_ID_NONE,
-           first.codecpar.format != AV_SAMPLE_FMT_NONE.rawValue,
-           first.codecpar.ch_layout.nb_channels > 0,
-           first.codecpar.sample_rate > 0 {
+           AudioDescriptor.hasDecodableCodecParameters(first.codecpar) {
             // Skip audio tracks with an invalid descriptor (0 channels / unspecified sample rate).
             // Such tracks never decode (frameCount stays 0), and because the audio clock is the
             // master clock, video would otherwise stall in buffering forever. Leaving the track

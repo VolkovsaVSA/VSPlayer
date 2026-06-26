@@ -198,16 +198,19 @@ extension VSMEPlayer: MEPlayerDelegate {
         if vidoeTracks.isEmpty {
             videoOutput = nil
         }
-        let audioDescriptor = tracks(mediaType: .audio).first { $0.isEnabled }.flatMap {
-            $0 as? FFmpegAssetTrack
-        }?.audioDescriptor
-        if let audioDescriptor, !audioDescriptor.isDecodable {
+        let enabledAudioTrack = tracks(mediaType: .audio).first { $0.isEnabled } as? FFmpegAssetTrack
+        let audioDescriptor = enabledAudioTrack?.audioDescriptor
+        let hasValidCodecParameters = enabledAudioTrack.map {
+            AudioDescriptor.hasDecodableCodecParameters($0.codecpar)
+        } ?? false
+        if audioDescriptor != nil, !audioDescriptor!.isDecodable || !hasValidCodecParameters {
             VSLog("[audio] malformed audio track, falling back to video-only playback")
             playerItem.disableEnabledAudioTrack()
         }
+        let shouldPrepareAudio = audioDescriptor?.isDecodable == true && hasValidCodecParameters
         runOnMainThread { [weak self] in
             guard let self else { return }
-            if let audioDescriptor, audioDescriptor.isDecodable {
+            if let audioDescriptor, shouldPrepareAudio {
                 VSLog("[audio] audio type: \(audioOutput) prepare audioFormat )")
                 audioOutput.prepare(audioFormat: audioDescriptor.audioFormat)
             }

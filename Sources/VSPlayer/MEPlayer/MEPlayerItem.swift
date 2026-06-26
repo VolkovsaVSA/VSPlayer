@@ -401,11 +401,12 @@ extension MEPlayerItem {
             wantedStreamNb = -1
         }
         let index = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, wantedStreamNb, videoIndex, nil, 0)
-        if let first = audios.first(where: {
-            index > 0 ? $0.trackID == index : true
-        }), first.codecpar.codec_id != AV_CODEC_ID_NONE,
-            first.codecpar.ch_layout.nb_channels > 0,
-            first.codecpar.sample_rate > 0 {
+        if index >= 0,
+           let first = audios.first(where: { $0.trackID == index }),
+           first.codecpar.codec_id != AV_CODEC_ID_NONE,
+           first.codecpar.format != AV_SAMPLE_FMT_NONE.rawValue,
+           first.codecpar.ch_layout.nb_channels > 0,
+           first.codecpar.sample_rate > 0 {
             // Skip audio tracks with an invalid descriptor (0 channels / unspecified sample rate).
             // Such tracks never decode (frameCount stays 0), and because the audio clock is the
             // master clock, video would otherwise stall in buffering forever. Leaving the track
@@ -423,6 +424,18 @@ extension MEPlayerItem {
             videoAudioTracks.append(track)
             isAudioStalled = false
         }
+    }
+
+    /// Drops a malformed or undecodable audio track so the video clock becomes the master clock.
+    func disableEnabledAudioTrack() {
+        assetTracks.filter { $0.mediaType == .audio && $0.isEnabled }.forEach { $0.isEnabled = false }
+        if let audioTrack {
+            let trackToRemove = audioTrack
+            allPlayerItemTracks.removeAll { ($0 as AnyObject) === (trackToRemove as AnyObject) }
+            videoAudioTracks.removeAll { ($0 as AnyObject) === (trackToRemove as AnyObject) }
+            self.audioTrack = nil
+        }
+        isAudioStalled = true
     }
 
     private func read() {

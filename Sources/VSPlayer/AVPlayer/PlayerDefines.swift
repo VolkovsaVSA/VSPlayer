@@ -195,6 +195,26 @@ public struct LoadingState {
     public let isPlayable: Bool
     public let isFirst: Bool
     public let isSeek: Bool
+
+    public init(
+        loadedTime: TimeInterval,
+        progress: TimeInterval,
+        packetCount: Int,
+        frameCount: Int,
+        isEndOfFile: Bool,
+        isPlayable: Bool,
+        isFirst: Bool,
+        isSeek: Bool
+    ) {
+        self.loadedTime = loadedTime
+        self.progress = progress
+        self.packetCount = packetCount
+        self.frameCount = frameCount
+        self.isEndOfFile = isEndOfFile
+        self.isPlayable = isPlayable
+        self.isFirst = isFirst
+        self.isSeek = isSeek
+    }
 }
 
 public let VSPlayerErrorDomain = "VSPlayerErrorDomain"

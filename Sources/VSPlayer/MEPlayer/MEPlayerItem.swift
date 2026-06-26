@@ -337,6 +337,9 @@ extension MEPlayerItem {
         assetTracks = (0 ..< Int(formatCtx.pointee.nb_streams)).compactMap { i in
             if let coreStream = formatCtx.pointee.streams[i] {
                 coreStream.pointee.discard = AVDISCARD_ALL
+                if options.audioDisable, coreStream.pointee.codecpar.pointee.codec_type == AVMEDIA_TYPE_AUDIO {
+                    return nil
+                }
                 if let assetTrack = FFmpegAssetTrack(stream: coreStream) {
                     if assetTrack.mediaType == .subtitle {
                         let subtitle = SyncPlayerItemTrack<SubtitleFrame>(mediaType: .subtitle, frameCapacity: 255, options: options)
@@ -424,6 +427,9 @@ extension MEPlayerItem {
                 videoAudioTracks.append(track)
                 isAudioStalled = false
             }
+        }
+        if options.audioDisable {
+            isAudioStalled = true
         }
     }
 
@@ -818,7 +824,10 @@ extension MEPlayerItem: CodecCapacityDelegate {
 
 extension MEPlayerItem: OutputRenderSourceDelegate {
     func mainClock() -> VSClock {
-        isAudioStalled ? videoClock : audioClock
+        if options.audioDisable || isAudioStalled {
+            return videoClock
+        }
+        return audioClock
     }
 
     public func setVideo(time: CMTime, position: Int64) {

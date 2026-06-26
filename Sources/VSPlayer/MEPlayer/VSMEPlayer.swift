@@ -175,6 +175,9 @@ private extension VSMEPlayer {
     #if !os(macOS)
     @objc private func audioRouteChange(notification: Notification) {
         VSLog("[audio] audioRouteChange")
+        guard !options.audioDisable else {
+            return
+        }
         guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt else {
             return
         }

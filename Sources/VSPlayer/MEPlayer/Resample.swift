@@ -317,6 +317,11 @@ public class AudioDescriptor: Equatable {
         return lhs.sampleFormat == AVSampleFormat(rawValue: rhs.format) && lhs.sampleRate == sampleRate && lhs.channel == rhs.ch_layout
     }
 
+    /// True when FFmpeg resolved enough parameters to decode and render this track.
+    public var isDecodable: Bool {
+        sampleFormat != AV_SAMPLE_FMT_NONE && channel.nb_channels > 0 && sampleRate > 0
+    }
+
     static func audioFormat(sampleFormat: AVSampleFormat, sampleRate: Int32, outChannel: inout AVChannelLayout, channelCount: AVAudioChannelCount) -> AVAudioFormat {
         if channelCount != AVAudioChannelCount(outChannel.nb_channels) {
             av_channel_layout_default(&outChannel, Int32(channelCount))

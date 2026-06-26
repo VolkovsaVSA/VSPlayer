@@ -30,6 +30,8 @@ public final class MEPlayerItem: Sendable {
     private var videoClock = VSClock()
     private var isFirst = true
     private var isSeek = false
+    private var undecodableAudioTickCount = 0
+    private static let undecodableAudioTickThreshold = 20
     private var allPlayerItemTracks = [PlayerItemTrackProtocol]()
     private var maxFrameDuration = 10.0
     private var videoAudioTracks = [CapacityProtocol]()
@@ -393,34 +395,62 @@ extension MEPlayerItem {
             }
         }
 
-        let audios = assetTracks.filter { $0.mediaType == .audio }
-        let wantedStreamNb: Int32
-        if !audios.isEmpty, let index = options.wantedAudio(tracks: audios) {
-            wantedStreamNb = audios[index].trackID
-        } else {
-            wantedStreamNb = -1
+        if !options.audioDisable {
+            let audios = assetTracks.filter { $0.mediaType == .audio }
+            let wantedStreamNb: Int32
+            if !audios.isEmpty, let index = options.wantedAudio(tracks: audios) {
+                wantedStreamNb = audios[index].trackID
+            } else {
+                wantedStreamNb = -1
+            }
+            let index = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, wantedStreamNb, videoIndex, nil, 0)
+            if index >= 0,
+               let first = audios.first(where: { $0.trackID == index }),
+               AudioDescriptor.hasDecodableCodecParameters(first.codecpar) {
+                // Skip audio tracks with an invalid descriptor (0 channels / unspecified sample rate).
+                // Such tracks never decode (frameCount stays 0), and because the audio clock is the
+                // master clock, video would otherwise stall in buffering forever. Leaving the track
+                // disabled keeps isAudioStalled = true so the video clock drives playback (video-only
+                // fallback). Valid audio is unaffected.
+                first.isEnabled = true
+                options.process(assetTrack: first)
+                // 音频要比较所有的音轨，因为truehd的fps是1200，跟其他的音轨差距太大了
+                let fps = audios.map(\.nominalFrameRate).max() ?? 44
+                let frameCapacity = options.audioFrameMaxCount(fps: fps, channelCount: Int(first.audioDescriptor?.audioFormat.channelCount ?? 2))
+                let track = options.syncDecodeAudio ? SyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options) : AsyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options)
+                track.delegate = self
+                allPlayerItemTracks.append(track)
+                audioTrack = track
+                videoAudioTracks.append(track)
+                isAudioStalled = false
+            }
         }
-        let index = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, wantedStreamNb, videoIndex, nil, 0)
-        if index >= 0,
-           let first = audios.first(where: { $0.trackID == index }),
-           AudioDescriptor.hasDecodableCodecParameters(first.codecpar) {
-            // Skip audio tracks with an invalid descriptor (0 channels / unspecified sample rate).
-            // Such tracks never decode (frameCount stays 0), and because the audio clock is the
-            // master clock, video would otherwise stall in buffering forever. Leaving the track
-            // disabled keeps isAudioStalled = true so the video clock drives playback (video-only
-            // fallback). Valid audio is unaffected.
-            first.isEnabled = true
-            options.process(assetTrack: first)
-            // 音频要比较所有的音轨，因为truehd的fps是1200，跟其他的音轨差距太大了
-            let fps = audios.map(\.nominalFrameRate).max() ?? 44
-            let frameCapacity = options.audioFrameMaxCount(fps: fps, channelCount: Int(first.audioDescriptor?.audioFormat.channelCount ?? 2))
-            let track = options.syncDecodeAudio ? SyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options) : AsyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options)
-            track.delegate = self
-            allPlayerItemTracks.append(track)
-            audioTrack = track
-            videoAudioTracks.append(track)
-            isAudioStalled = false
+    }
+
+    /// Disables audio when packets arrive but no decodable frames are produced while video progresses.
+    private func disableUndecodableAudioTrackIfNeeded() {
+        guard !options.audioDisable, let audioTrack, let videoTrack else {
+            return
         }
+        let audioStalled = audioTrack.frameCount == 0 && !audioTrack.isEndOfFile
+        let videoProgressing = videoTrack.frameCount > 0
+        guard audioStalled, videoProgressing else {
+            if audioTrack.frameCount > 0 {
+                undecodableAudioTickCount = 0
+            }
+            return
+        }
+        let readyForFallback = audioTrack.packetCount > 0 || (options.readyTime > 0 && CACurrentMediaTime() - options.readyTime > 0.5)
+        guard readyForFallback else {
+            return
+        }
+        undecodableAudioTickCount += 1
+        guard undecodableAudioTickCount >= Self.undecodableAudioTickThreshold else {
+            return
+        }
+        undecodableAudioTickCount = 0
+        VSLog("[audio] audio track produced no decodable frames, falling back to video-only playback")
+        disableEnabledAudioTrack()
     }
 
     /// Drops a malformed or undecodable audio track so the video clock becomes the master clock.
@@ -714,6 +744,7 @@ extension MEPlayerItem: MediaPlayback {
 
 extension MEPlayerItem: CodecCapacityDelegate {
     func codecDidChangeCapacity() {
+        disableUndecodableAudioTrackIfNeeded()
         let loadingState = options.playable(capacitys: videoAudioTracks, isFirst: isFirst, isSeek: isSeek)
         delegate?.sourceDidChange(loadingState: loadingState)
         if loadingState.isPlayable {

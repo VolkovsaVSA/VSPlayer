@@ -85,6 +85,8 @@ open class VSOptions {
     public var hardwareDecode = VSOptions.hardwareDecode
     public var asynchronousDecompression = VSOptions.asynchronousDecompression
     public var videoDisable = false
+    /// When true, no audio stream is opened or decoded (video-only playback).
+    public var audioDisable = false
     public var canStartPictureInPictureAutomaticallyFromInline = VSOptions.canStartPictureInPictureAutomaticallyFromInline
     public var automaticWindowResize = true
     @Published

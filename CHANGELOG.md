@@ -70,6 +70,9 @@ distributed as a Swift Package.
   App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
   forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
 
+[0.1.5]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.5
+[0.1.4]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.4
+[0.1.3]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.3
 [0.1.2]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.2
 [0.1.1]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.1
 [0.1.0]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.0

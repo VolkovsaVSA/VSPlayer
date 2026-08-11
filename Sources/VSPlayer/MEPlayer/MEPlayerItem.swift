@@ -24,7 +24,7 @@ public final class MEPlayerItem: Sendable {
     private var readOperation: BlockOperation?
     private var closeOperation: BlockOperation?
     private var seekingCompletionHandler: ((Bool) -> Void)?
-    // 没有音频数据可以渲染
+    // No audio data available to render
     private var isAudioStalled = true
     private var audioClock = VSClock()
     private var videoClock = VSClock()
@@ -32,6 +32,10 @@ public final class MEPlayerItem: Sendable {
     private var isSeek = false
     private var undecodableAudioTickCount = 0
     private static let undecodableAudioTickThreshold = 20
+    /// Upper bound of frames discarded in a single display-link tick while catching up
+    /// with a server-paced stream (see `getVideoOutputRender`).
+    private static let maxCatchUpFrames = 32
+    private var rateDiagnostics = PlaybackRateDiagnostics()
     private var allPlayerItemTracks = [PlayerItemTrackProtocol]()
     private var maxFrameDuration = 10.0
     private var videoAudioTracks = [CapacityProtocol]()
@@ -83,7 +87,7 @@ public final class MEPlayerItem: Sendable {
     }
 
     lazy var dynamicInfo = DynamicInfo { [weak self] in
-        // metadata可能会实时变化。所以把它放在DynamicInfo里面
+        // metadata may change in real time. So it is placed inside DynamicInfo
         toDictionary(self?.formatCtx?.pointee.metadata)
     } bytesRead: { [weak self] in
         self?.formatCtx?.pointee.pb?.pointee.bytes_read ?? 0
@@ -114,7 +118,7 @@ public final class MEPlayerItem: Sendable {
                     }
                 }
             }
-            // 找不到解码器
+            // Decoder not found
             if log.hasPrefix("parser not found for codec") {
                 VSLog(level: .error, log)
             }
@@ -185,14 +189,14 @@ extension MEPlayerItem {
             }
         }
         formatCtx.pointee.interrupt_callback = interruptCB
-        // avformat_close_input这个函数会调用io_close2。但是自定义协议是不会调用io_close2这个函数
+        // The avformat_close_input function calls io_close2. But a custom protocol does not call io_close2
 //        formatCtx.pointee.io_close2 = { _, _ -> Int32 in
 //            0
 //        }
         setHttpProxy()
         var avOptions = options.formatContextOptions.avOptions
         if let pb = options.process(url: url) {
-            // 如果要自定义协议的话，那就用avio_alloc_context，对formatCtx.pointee.pb赋值
+            // For a custom protocol, use avio_alloc_context and assign it to formatCtx.pointee.pb
             formatCtx.pointee.pb = pb.getContext()
         }
         let urlString: String
@@ -237,11 +241,18 @@ extension MEPlayerItem {
         options.findTime = CACurrentMediaTime()
         options.formatName = String(cString: formatCtx.pointee.iformat.pointee.name)
         seekByBytes = (flags & AVFMT_NO_BYTE_SEEK == 0) && (flags & AVFMT_TS_DISCONT != 0) && options.formatName != "ogg"
-        if formatCtx.pointee.start_time != Int64.min {
+        if options.isServerPacedStream {
+            startTime = .zero
+            videoClock.time = startTime
+            audioClock.time = startTime
+        } else if formatCtx.pointee.start_time != Int64.min {
             startTime = CMTime(value: formatCtx.pointee.start_time, timescale: AV_TIME_BASE)
             videoClock.time = startTime
             audioClock.time = startTime
         }
+        options.mediaTimelinePtsRemapper.reset()
+        options.mediaTimelinePacer.reset()
+        rateDiagnostics.reset()
         duration = TimeInterval(max(formatCtx.pointee.duration, 0) / Int64(AV_TIME_BASE))
         fileSize = Double(formatCtx.pointee.bit_rate) * duration / 8
         createCodec(formatCtx: formatCtx)
@@ -417,7 +428,7 @@ extension MEPlayerItem {
                 // fallback). Valid audio is unaffected.
                 first.isEnabled = true
                 options.process(assetTrack: first)
-                // 音频要比较所有的音轨，因为truehd的fps是1200，跟其他的音轨差距太大了
+                // For audio, all audio tracks must be compared, because the fps of truehd is 1200, which differs too much from other tracks
                 let fps = audios.map(\.nominalFrameRate).max() ?? 44
                 let frameCapacity = options.audioFrameMaxCount(fps: fps, channelCount: Int(first.audioDescriptor?.audioFormat.channelCount ?? 2))
                 let track = options.syncDecodeAudio ? SyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options) : AsyncPlayerItemTrack<AudioFrame>(mediaType: .audio, frameCapacity: frameCapacity, options: options)
@@ -605,6 +616,9 @@ extension MEPlayerItem {
             if let first, first.isEnabled {
                 packet.assetTrack = first
                 if first.mediaType == .video {
+                    if options.isServerPacedStream {
+                        options.mediaTimelinePtsRemapper.remapPacket(packet)
+                    }
                     if options.readVideoTime == 0 {
                         options.readVideoTime = CACurrentMediaTime()
                     }
@@ -683,17 +697,17 @@ extension MEPlayerItem: MediaPlayback {
         state = .closed
         av_packet_free(&outputPacket)
         stopRecord()
-        // 故意循环引用。等结束了。才释放
+        // Retain cycle on purpose. Released only after it finishes
         let closeOperation = BlockOperation {
             Thread.current.name = (self.operationQueue.name ?? "") + "_close"
             self.allPlayerItemTracks.forEach { $0.shutdown() }
-            VSLog("清空formatCtx")
-            // 自定义的协议才会av_class为空
+            VSLog("clear formatCtx")
+            // av_class is null only for a custom protocol
             if let formatCtx = self.formatCtx, (formatCtx.pointee.flags & AVFMT_FLAG_CUSTOM_IO) != 0, let opaque = formatCtx.pointee.pb.pointee.opaque {
                 let value = Unmanaged<AbstractAVIOContext>.fromOpaque(opaque).takeRetainedValue()
                 value.close()
             }
-            // 不要自己来释放pb。不然第二次播放同一个url会出问题
+            // Do not free pb yourself. Otherwise playing the same url a second time breaks
 //            self.formatCtx?.pointee.pb = nil
             self.formatCtx?.pointee.interrupt_callback.opaque = nil
             self.formatCtx?.pointee.interrupt_callback.callback = nil
@@ -729,6 +743,11 @@ extension MEPlayerItem: MediaPlayback {
     }
 
     public func seek(time: TimeInterval, completion: @escaping ((Bool) -> Void)) {
+        if options.isServerPacedStream {
+            options.mediaTimelinePtsRemapper.reset()
+            options.mediaTimelinePacer.reset()
+            rateDiagnostics.reset()
+        }
         if state == .reading || state == .paused {
             seekTime = time
             state = .seeking
@@ -845,11 +864,28 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
 
     public func setAudio(time: CMTime, position: Int64) {
 //        print("[audio] setAudio: \(time.seconds)")
-        // 切换到主线程的话，那播放起来会更顺滑
+        // Switching to the main thread makes playback smoother
         runOnMainThread {
             self.audioClock.time = time
             self.audioClock.position = position
         }
+    }
+
+    /// Silent unless `VSOptions.isPlaybackRateDiagnosticsEnabled` is set.
+    private func logRateDiagnostics(frame: VideoVTBFrame?, droppedFrames: Int) {
+        guard VSOptions.isPlaybackRateDiagnosticsEnabled else {
+            return
+        }
+        guard let snapshot = rateDiagnostics.record(
+            displayed: frame == nil ? 0 : 1,
+            dropped: droppedFrames,
+            mediaTime: frame?.seconds,
+            speedFactor: Double(options.streamSpeedFactor),
+            now: CACurrentMediaTime()
+        ) else {
+            return
+        }
+        VSLog(snapshot.logLine)
     }
 
     public func getVideoOutputRender(force: Bool) -> VideoVTBFrame? {
@@ -862,7 +898,28 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
             (self.dynamicInfo.audioVideoSyncDiff, type) = self.options.videoClockSync(main: self.mainClock(), nextVideoTime: frame.seconds, fps: Double(frame.fps), frameCount: count)
             return type != .remain
         }
-        let frame = videoTrack.getOutputRender(where: predicate)
+        var frame = videoTrack.getOutputRender(where: predicate)
+        var droppedInTick = 0
+        if !force, options.isServerPacedStream {
+            // A speed-scaled stream may hold more frames per media-second than the display link
+            // can present. Discard, inside the same tick, every frame that is already behind the
+            // pacer target; the loop stops on the first frame that is due or still ahead.
+            var caughtUp = 0
+            while type == .dropNextFrame,
+                  caughtUp < Self.maxCatchUpFrames,
+                  let laterFrame = videoTrack.getOutputRender(where: predicate)
+            {
+                dynamicInfo.droppedVideoFrameCount += 1
+                droppedInTick += 1
+                frame = laterFrame
+                caughtUp += 1
+            }
+        }
+        defer {
+            if options.isServerPacedStream {
+                logRateDiagnostics(frame: frame, droppedFrames: droppedInTick)
+            }
+        }
         switch type {
         case .remain:
             break
@@ -871,6 +928,7 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
         case .dropNextFrame:
             if videoTrack.getOutputRender(where: nil) != nil {
                 dynamicInfo.droppedVideoFrameCount += 1
+                droppedInTick += 1
             }
         case .flush:
             let count = videoTrack.outputRenderQueue.count
@@ -918,7 +976,7 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
 
 extension AbstractAVIOContext {
     func getContext() -> UnsafeMutablePointer<AVIOContext> {
-        // 需要持有ioContext，不然会被释放掉,等到shutdown在清空
+        // ioContext must be retained, otherwise it gets released; clear it on shutdown
         avio_alloc_context(av_malloc(Int(bufferSize)), bufferSize, writable ? 1 : 0, Unmanaged.passRetained(self).toOpaque()) { opaque, buffer, size -> Int32 in
             let value = Unmanaged<AbstractAVIOContext>.fromOpaque(opaque!).takeUnretainedValue()
             let ret = value.read(buffer: buffer, size: size)

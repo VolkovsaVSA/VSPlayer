@@ -56,8 +56,8 @@ class SubtitleDecode: DecodeProtocol {
             duration = packet.assetTrack.timebase.cmtime(for: packet.duration).seconds
         }
         var parts = text(subtitle: subtitle)
-        /// 不用preSubtitleFrame来进行更新end。而是插入一个空的字幕来更新字幕。
-        /// 因为字幕有可能不按顺序解码。这样就会导致end比start小，然后这个字幕就不会被清空了。
+        /// Don't use preSubtitleFrame to update end. Instead insert an empty subtitle to update the subtitle.
+        /// Because subtitles may be decoded out of order. That would make end smaller than start, and then this subtitle would never be cleared.
         if parts.isEmpty {
             parts.append(SubtitlePart(0, 0, attributedString: nil))
         }
@@ -120,7 +120,7 @@ class SubtitleDecode: DecodeProtocol {
                 origin = .zero
             }
             var image: UIImage?
-            // 因为字幕需要有透明度,所以不能用jpg；tif在iOS支持没有那么好，会有绿色背景； 用heic格式，展示的时候会卡主线程；所以最终用png。
+            // Subtitles need transparency, so jpg can not be used; tif is not well supported on iOS and gets a green background; heic blocks the main thread while displaying; so png is used in the end.
             if let data = CGImage.combine(images: images)?.data(type: .png, quality: 0.2) {
                 image = UIImage(data: data)
             }

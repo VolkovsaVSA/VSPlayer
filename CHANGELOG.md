@@ -5,11 +5,33 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-08-11
+
+### Added
+- `VSOptions.isServerPacedStream` — enable pacing for streams where the server already
+  applies speed (dense Nx HLS), so wall-clock pacing matches the requested factor.
+- `VSOptions.streamSpeedFactor` — server-applied speed (≥1) used with `isServerPacedStream`.
+- `MediaTimelinePtsRemapper` — remaps discontinuous / compressed demuxer PTS onto a
+  continuous media timeline.
+- `MediaTimelinePacer` — paces display against wall clock so effective rate stays ≈
+  `streamSpeedFactor` when media FPS is not a multiple of the display refresh rate.
+- `VSOptions.isPlaybackRateDiagnosticsEnabled` and `[rate-diag]` logs via
+  `PlaybackRateDiagnostics`.
+
+### Fixed
+- Visual playback speed no longer drifts (e.g. 4× feeling like 6×) when media FPS does not
+  divide display Hz, caused by re-anchoring the main clock to each shown frame.
+- Frame queue throughput no longer caps high-speed catch-up (scaled `videoFrameMaxCount`).
+- 1× playback no longer drains the queue without waiting (rebuffering on dense HLS).
+
+### Changed
+- Source comments translated from Chinese to English; a few user-visible strings cleaned up.
+
 ## [0.1.5] - 2026-06-26
 
 ### Fixed
 - `LoadingState` exposes a public initializer so host apps can adjust playable state
-  (e.g. archive HLS video-only fallback in `TrassirVSOptions`).
+  (e.g. archive HLS video-only fallback).
 
 ## [0.1.4] - 2026-06-26
 
@@ -70,6 +92,10 @@ distributed as a Swift Package.
   App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
   forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
 
+[0.1.6]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.6
+[0.1.5]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.5
+[0.1.4]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.4
+[0.1.3]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.3
 [0.1.2]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.2
 [0.1.1]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.1
 [0.1.0]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.0

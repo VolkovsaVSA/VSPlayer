@@ -54,9 +54,9 @@ public final class MetalPlayView: UIView, VideoOutput {
     }
 
     public private(set) var pixelBuffer: PixelBufferProtocol?
-    /// 用displayLink会导致锁屏无法draw，
-    /// 用DispatchSourceTimer的话，在播放4k视频的时候repeat的时间会变长,
-    /// 用MTKView的draw(in:)也是不行，会卡顿
+    /// Using displayLink prevents drawing on a locked screen,
+    /// using DispatchSourceTimer makes the repeat interval grow when playing 4k video,
+    /// using MTKView's draw(in:) doesn't work either, it stutters
     private var displayLink: CADisplayLink!
 //    private let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
     public var options: VSOptions
@@ -78,7 +78,7 @@ public final class MetalPlayView: UIView, VideoOutput {
         metalView.isHidden = true
         //        displayLink = CADisplayLink(block: renderFrame)
         displayLink = CADisplayLink(target: self, selector: #selector(renderFrame))
-        // 一定要用common。不然在视频上面操作view的话，那就会卡顿了。
+        // Must use common. Otherwise interacting with a view on top of the video will stutter.
         displayLink.add(to: .main, forMode: .common)
         pause()
     }

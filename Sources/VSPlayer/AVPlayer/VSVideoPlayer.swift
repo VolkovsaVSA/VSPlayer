@@ -42,7 +42,7 @@ extension VSVideoPlayer: UIViewRepresentable {
         updateView(view, context: context)
     }
 
-    // iOS tvOS真机先调用onDisappear在调用dismantleUIView，但是模拟器就反过来了。
+    // On real iOS and tvOS devices onDisappear is called before dismantleUIView, but on the simulator it is the other way around.
     public static func dismantleUIView(_: UIViewType, coordinator: Coordinator) {
         coordinator.resetPlayer()
     }
@@ -56,7 +56,7 @@ extension VSVideoPlayer: UIViewRepresentable {
         updateView(view, context: context)
     }
 
-    // macOS先调用onDisappear在调用dismantleNSView
+    // On macOS onDisappear is called before dismantleNSView
     public static func dismantleNSView(_ view: NSViewType, coordinator: Coordinator) {
         coordinator.resetPlayer()
         view.window?.aspectRatio = CGSize(width: 16, height: 9)
@@ -116,7 +116,7 @@ extension VSVideoPlayer: UIViewRepresentable {
 
         public var subtitleModel = SubtitleModel()
         public var timemodel = ControllerTimeModel()
-        // 在SplitView模式下，第二次进入会先调用makeUIView。然后在调用之前的dismantleUIView.所以如果进入的是同一个View的话，就会导致playerLayer被清空了。最准确的方式是在onDisappear清空playerLayer
+        // In SplitView mode, entering a second time calls makeUIView first and only then the previous dismantleUIView. So when entering the same View, playerLayer ends up being cleared. The most reliable way is to clear playerLayer in onDisappear
         public var playerLayer: VSPlayerLayer? {
             didSet {
                 oldValue?.delegate = nil
@@ -188,7 +188,7 @@ extension VSVideoPlayer: UIViewRepresentable {
             isMaskShow = show
             if show {
                 delayHide?.cancel()
-                // 播放的时候才自动隐藏
+                // Auto hide only while playing
                 guard state == .bufferFinished else { return }
                 if autoHide {
                     delayHide = DispatchWorkItem { [weak self] in
@@ -223,7 +223,7 @@ extension VSVideoPlayer.Coordinator: VSPlayerLayerDelegate {
         if state == .readyToPlay {
             playbackRate = layer.player.playbackRate
             if let subtitleDataSouce = layer.player.subtitleDataSouce {
-                // 要延后增加内嵌字幕。因为有些内嵌字幕是放在视频流的。所以会比readyToPlay回调晚。
+                // Embedded subtitles must be added with a delay, because some of them are carried in the video stream, so they arrive later than the readyToPlay callback.
                 DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 1) { [weak self] in
                     guard let self else { return }
                     self.subtitleModel.addSubtitle(dataSouce: subtitleDataSouce)
@@ -326,9 +326,9 @@ extension View {
     }
 }
 
-/// 这是一个频繁变化的model。View要少用这个
+/// This model changes frequently. Views should use it sparingly
 public class ControllerTimeModel: ObservableObject {
-    // 改成int才不会频繁更新
+    // Changed to Int so that it does not update too often
     @Published
     public var currentTime = 0
     @Published

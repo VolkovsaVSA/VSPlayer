@@ -29,7 +29,7 @@ class VideoToolboxDecode: DecodeProtocol {
 
     func decodeFrame(from packet: Packet, completionHandler: @escaping (Result<MEFrame, Error>) -> Void) {
         if needReconfig {
-            // 解决从后台切换到前台，解码失败的问题
+            // Fix the decoding failure when switching from background to foreground
             session = DecompressionSession(assetTrack: session.assetTrack, options: options)!
             doFlushCodec()
             needReconfig = false
@@ -56,7 +56,7 @@ class VideoToolboxDecode: DecodeProtocol {
                         if packet.isKeyFrame {
                             completionHandler(.failure(NSError(errorCode: .codecVideoReceiveFrame, avErrorCode: status)))
                         } else {
-                            // 解决从后台切换到前台，解码失败的问题
+                            // Fix the decoding failure when switching from background to foreground
                             self.needReconfig = true
                         }
                     }
@@ -84,7 +84,7 @@ class VideoToolboxDecode: DecodeProtocol {
                 if packet.isKeyFrame {
                     throw NSError(errorCode: .codecVideoReceiveFrame, avErrorCode: status)
                 } else {
-                    // 解决从后台切换到前台，解码失败的问题
+                    // Fix the decoding failure when switching from background to foreground
                     needReconfig = true
                 }
             }

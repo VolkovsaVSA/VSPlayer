@@ -134,7 +134,7 @@ extension AVAudioChannelLayout {
         }
         var outChannel = AVChannelLayout()
         if let mask {
-            // 不能用AV_CHANNEL_ORDER_CUSTOM
+            // AV_CHANNEL_ORDER_CUSTOM can not be used
             av_channel_layout_from_mask(&outChannel, mask)
         } else {
             av_channel_layout_default(&outChannel, Int32(channelCount))

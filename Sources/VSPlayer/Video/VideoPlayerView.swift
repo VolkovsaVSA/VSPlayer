@@ -35,14 +35,14 @@ open class VideoPlayerView: PlayerView {
     public let tapGesture = UITapGestureRecognizer()
     public let doubleTapGesture = UITapGestureRecognizer()
     public let panGesture = UIPanGestureRecognizer()
-    /// 滑动方向
+    /// Pan direction
     var scrollDirection = VSPanDirection.horizontal
     var tmpPanValue: Float = 0
     private var isSliderSliding = false
 
     public let bottomMaskView = LayerContainerView()
     public let topMaskView = LayerContainerView()
-    // 是否播放过
+    // Whether playback has started before
     private(set) var isPlayed = false
     private var cancellable: AnyCancellable?
 
@@ -285,7 +285,7 @@ open class VideoPlayerView: PlayerView {
                 buildMenusForButtons()
             }
             if let subtitleDataSouce = layer.player.subtitleDataSouce {
-                // 要延后增加内嵌字幕。因为有些内嵌字幕是放在视频流的。所以会比readyToPlay回调晚。
+                // Embedded subtitles must be added with a delay, because some of them are carried in the video stream, so they arrive later than the readyToPlay callback.
                 DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 1) { [weak self] in
                     guard let self else { return }
                     self.srtControl.addSubtitle(dataSouce: subtitleDataSouce)
@@ -390,7 +390,7 @@ open class VideoPlayerView: PlayerView {
 
     open func panGestureBegan(location _: CGPoint, direction: VSPanDirection) {
         if direction == .horizontal {
-            // 给tmpPanValue初值
+            // Set the initial value of tmpPanValue
             if totalTime > 0 {
                 tmpPanValue = toolBar.timeSlider.value
             }
@@ -404,7 +404,7 @@ open class VideoPlayerView: PlayerView {
             }
             isSliderSliding = true
             if totalTime > 0 {
-                // 每次滑动需要叠加时间，通过一定的比例，使滑动一直处于统一水平
+                // Each pan must accumulate time by a fixed ratio, so that panning stays at a consistent level
                 tmpPanValue += panValue(velocity: point, direction: direction, currentTime: Float(toolBar.currentTime), totalTime: Float(totalTime))
                 tmpPanValue = max(min(tmpPanValue, Float(totalTime)), 0)
                 showSeekToView(second: Double(tmpPanValue), isAdd: point.x > 0)
@@ -421,8 +421,8 @@ open class VideoPlayerView: PlayerView {
     }
 
     open func panGestureEnded() {
-        // 移动结束也需要判断垂直或者平移
-        // 比如水平移动结束时，要快进到指定位置，如果这里没有判断，当我们调节音量完之后，会出现屏幕跳动的bug
+        // When the movement ends we also need to check whether it was vertical or horizontal
+        // For example, when a horizontal move ends we must seek to the given position; without this check, after adjusting the volume there would be a screen jumping bug
         if scrollDirection == .horizontal, VSOptions.enablePlaytimeGestures {
             hideSeekToView()
             isSliderSliding = false
@@ -456,12 +456,12 @@ open class VideoPlayerView: PlayerView {
         speedTipLabel.text = text
         speedTipLabel.isHidden = false
 
-        // 显示动画
+        // Show animation
         UIView.animate(withDuration: 0.2) {
             self.speedTipLabel.alpha = 1
         }
 
-        // 延迟后隐藏
+        // Hide after a delay
         delayItem?.cancel()
         delayItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
@@ -658,13 +658,13 @@ public extension VideoPlayerView {
 
 extension VideoPlayerView {
     @objc private func panGestureAction(_ pan: UIPanGestureRecognizer) {
-        // 播放结束时，忽略手势,锁屏状态忽略手势
+        // Ignore gestures when playback has finished, and ignore gestures in the locked state
         guard !replayButton.isSelected, !isLock else { return }
-        // 根据上次和本次移动的位置，算出一个速率的point
+        // Compute a velocity point from the previous and current move positions
         let velocityPoint = pan.velocity(in: self)
         switch pan.state {
         case .began:
-            // 使用绝对值来判断移动的方向
+            // Use absolute values to determine the move direction
             if abs(velocityPoint.x) > abs(velocityPoint.y) {
                 scrollDirection = .horizontal
             } else {
@@ -721,7 +721,7 @@ extension VideoPlayerView {
      */
     private func autoFadeOutViewWithAnimation() {
         delayItem?.cancel()
-        // 播放的时候才自动隐藏
+        // Auto hide only while playing
         guard toolBar.playButton.isSelected else { return }
         delayItem = DispatchWorkItem { [weak self] in
             self?.isMaskShow = false
@@ -941,38 +941,38 @@ extension VideoPlayerView {
 }
 
 public enum VSPlayerTopBarShowCase {
-    /// 始终显示
+    /// Always show
     case always
-    /// 只在横屏界面显示
+    /// Show only in landscape UI
     case horizantalOnly
-    /// 不显示
+    /// Do not show
     case none
 }
 
 public extension VSOptions {
-    /// 顶部返回、标题、AirPlay按钮 显示选项，默认.Always，可选.HorizantalOnly、.None
+    /// Show option for the top back, title and AirPlay buttons. Default .Always, alternatives .HorizantalOnly, .None
     static var topBarShowInCase = VSPlayerTopBarShowCase.always
-    /// 自动隐藏操作栏的时间间隔 默认5秒
+    /// Time interval before the control bar is hidden automatically. Default 5 seconds
     static var animateDelayTimeInterval = TimeInterval(5)
-    /// 开启亮度手势 默认true
+    /// Enable brightness gestures. Default true
     static var enableBrightnessGestures = true
-    /// 开启音量手势 默认true
+    /// Enable volume gestures. Default true
     static var enableVolumeGestures = true
-    /// 开启进度滑动手势 默认true
+    /// Enable progress pan gestures. Default true
     static var enablePlaytimeGestures = true
-    /// 播放内核选择策略 先使用firstPlayer，失败了自动切换到secondPlayer，播放内核有VSAVPlayer、VSMEPlayer两个选项
-    /// 是否能后台播放视频
+    /// Playback core selection strategy: use firstPlayer first, on failure switch automatically to secondPlayer. The playback cores are VSAVPlayer and VSMEPlayer
+    /// Whether video can be played in the background
     static var canBackgroundPlay = false
 }
 
 extension UIView {
     var widthConstraint: NSLayoutConstraint? {
-        // 防止返回NSContentSizeLayoutConstraint
+        // Prevent returning NSContentSizeLayoutConstraint
         constraints.first { $0.isMember(of: NSLayoutConstraint.self) && $0.firstAttribute == .width }
     }
 
     var heightConstraint: NSLayoutConstraint? {
-        // 防止返回NSContentSizeLayoutConstraint
+        // Prevent returning NSContentSizeLayoutConstraint
         constraints.first { $0.isMember(of: NSLayoutConstraint.self) && $0.firstAttribute == .height }
     }
 

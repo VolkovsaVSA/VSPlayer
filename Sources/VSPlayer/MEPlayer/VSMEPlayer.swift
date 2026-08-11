@@ -257,7 +257,7 @@ extension VSMEPlayer: MEPlayerDelegate {
                 loadState = .loading
                 if playbackState == .playing {
                     runOnMainThread { [weak self] in
-                        // 在主线程更新进度
+                        // Update the progress on the main thread
                         self?.bufferingProgress = 0
                     }
                 }
@@ -282,7 +282,7 @@ extension VSMEPlayer: MEPlayerDelegate {
             }
             if playbackState == .playing {
                 runOnMainThread { [weak self] in
-                    // 在主线程更新进度
+                    // Update the progress on the main thread
                     self?.bufferingProgress = progress
                 }
             }
@@ -582,7 +582,7 @@ extension VSMEPlayer: DisplayLayerDelegate {
         if #available(iOS 15.0, tvOS 15.0, macOS 12.0, *) {
             let contentSource = AVPictureInPictureController.ContentSource(sampleBufferDisplayLayer: displayLayer, playbackDelegate: self)
             _pipController = VSPictureInPictureController(contentSource: contentSource)
-            // 更改contentSource会直接crash
+            // Changing contentSource crashes right away
 //            pipController?.contentSource = contentSource
         }
     }

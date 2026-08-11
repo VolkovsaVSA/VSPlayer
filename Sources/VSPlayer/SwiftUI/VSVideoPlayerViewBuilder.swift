@@ -46,7 +46,7 @@ enum VSVideoPlayerViewBuilder {
             let info = config.subtitleModel.subtitleInfos.first { $0.subtitleID == value }
             config.subtitleModel.selectedSubtitleInfo = info
             if let info = info as? MediaPlayerTrack {
-                // 因为图片字幕想要实时的显示，那就需要seek。所以需要走select track
+                // Image subtitles need a seek to be displayed in real time, so select track has to be used
                 config.playerLayer?.player.select(track: info)
             }
         }) {
@@ -63,7 +63,7 @@ enum VSVideoPlayerViewBuilder {
     static func playbackRateButton(playbackRate: Binding<Float>) -> some View {
         MenuView(selection: playbackRate) {
             ForEach([0.5, 1.0, 1.25, 1.5, 2.0] as [Float]) { value in
-                // 需要有一个变量text。不然会自动帮忙加很多0
+                // A text variable is needed, otherwise a lot of zeros are added automatically
                 let text = "\(value) x"
                 Text(text).tag(value)
             }
@@ -98,7 +98,7 @@ enum VSVideoPlayerViewBuilder {
         } label: {
             Image(systemName: "info.circle.fill")
         }
-        // iOS 模拟器加keyboardShortcut会导致VSVideoPlayer.Coordinator无法释放。真机不会有这个问题
+        // On the iOS simulator keyboardShortcut prevents VSVideoPlayer.Coordinator from being released. Real devices don't have this problem
         #if !os(tvOS)
         .keyboardShortcut("i", modifiers: [.command])
         #endif

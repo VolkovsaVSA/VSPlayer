@@ -78,7 +78,7 @@ public class ThumbnailController {
         let thumbHeight = thumbWidth * codecContext.pointee.height / codecContext.pointee.width
         let reScale = VideoSwresample(dstWidth: thumbWidth, dstHeight: thumbHeight, isDovi: false)
 //        let duration = formatCtx.pointee.duration
-        // 因为是针对视频流来进行seek。所以不能直接取formatCtx的duration
+        // The seek is performed on the video stream, so the duration of formatCtx can not be used directly
         let duration = av_rescale_q(formatCtx.pointee.duration,
                                     AVRational(num: 1, den: AV_TIME_BASE), videoStream.pointee.time_base)
         let interval = duration / Int64(thumbnailCount)

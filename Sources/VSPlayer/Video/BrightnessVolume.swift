@@ -84,7 +84,7 @@ private final class SystemView: UIVisualEffectView {
         titleLabel.font = .systemFont(ofSize: 16)
         titleLabel.textColor = UIColor(red: 0.25, green: 0.22, blue: 0.21, alpha: 1)
         titleLabel.textAlignment = .center
-        titleLabel.text = "亮度"
+        titleLabel.text = NSLocalizedString("brightness", comment: "")
         contentView.addSubview(titleLabel)
         let longView = UIView()
         longView.backgroundColor = titleLabel.textColor

@@ -79,9 +79,9 @@ public class AssParse: VSParseProtocol {
         return true
     }
 
-    // Dialogue: 0,0:12:37.73,0:12:38.83,Aki Default,,0,0,0,,{\be8}原来如此
-    // ffmpeg 软解的字幕
-    // 875,,Default,NTP,0000,0000,0000,!Effect,- 你们两个别冲这么快\\N- 我会取消所有行程尽快赶过去
+    // Dialogue: 0,0:12:37.73,0:12:38.83,Aki Default,,0,0,0,,{\be8}I see
+    // ffmpeg software decoded subtitles
+    // 875,,Default,NTP,0000,0000,0000,!Effect,- Don't you two rush so fast\\N- I'll cancel everything and get there ASAP
     public func parsePart(scanner: Scanner) -> SubtitlePart? {
         let isDialogue = scanner.scanString("Dialogue") != nil
         var dic = [String: String]()
@@ -223,7 +223,7 @@ extension String {
                     if char == "1" {
                         attributes[.foregroundColor] = color
                     } else if char == "2" {
-                        // 还不知道这个要设置到什么颜色上
+                        // Still unclear which color this should be applied to
 //                        attributes[.backgroundColor] = color
                     } else if char == "3" {
                         attributes[.strokeColor] = color
@@ -263,11 +263,11 @@ public extension [String: String] {
             }
             attributes[.font] = font
         }
-        // 创建字体样式
+        // Create font style
         if let assColor = self["PrimaryColour"] {
             attributes[.foregroundColor] = UIColor(assColor: assColor)
         }
-        // 还不知道这个要设置到什么颜色上
+        // Still unclear which color this should be applied to
         if let assColor = self["SecondaryColour"] {
 //            attributes[.backgroundColor] = UIColor(assColor: assColor)
         }
@@ -342,7 +342,7 @@ public class VTTParse: VSParseProtocol {
 
     /**
      00:00.430 --> 00:03.380
-     简中封装 by Q66
+     Simplified Chinese release by Q66
      */
     public func parsePart(scanner: Scanner) -> SubtitlePart? {
         var timeStrs: String?
@@ -388,7 +388,7 @@ public class SrtParse: VSParseProtocol {
     /**
      45
      00:02:52,184 --> 00:02:53,617
-     {\an4}慢慢来
+     {\an4}Take it slow
      */
     public func parsePart(scanner: Scanner) -> SubtitlePart? {
         var decimal: String?

@@ -49,7 +49,7 @@ public struct TVOSSlide: UIViewRepresentable {
         } else {
             view.processView.tintColor = .white
         }
-        // 要加这个才会触发进度条更新
+        // This has to be added to trigger the progress bar update
         let process = (value.wrappedValue - bounds.lowerBound) / (bounds.upperBound - bounds.lowerBound)
         if process != view.processView.progress {
             view.processView.progress = process

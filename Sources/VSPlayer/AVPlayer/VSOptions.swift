@@ -15,18 +15,18 @@ import OSLog
 import UIKit
 #endif
 open class VSOptions {
-    /// 最低缓存视频时间
+    /// Minimum video buffer duration
     @Published
     public var preferredForwardBufferDuration = VSOptions.preferredForwardBufferDuration
-    /// 最大缓存视频时间
+    /// Maximum video buffer duration
     public var maxBufferDuration = VSOptions.maxBufferDuration
-    /// 是否开启秒开
+    /// Whether to enable instant open
     public var isSecondOpen = VSOptions.isSecondOpen
-    /// 开启精确seek
+    /// Enable accurate seek
     public var isAccurateSeek = VSOptions.isAccurateSeek
     /// Applies to short videos only
     public var isLoopPlay = VSOptions.isLoopPlay
-    /// seek完是否自动播放
+    /// Whether to auto play after seek
     public var isSeekedAutoPlay = VSOptions.isSeekedAutoPlay
     /*
      AVSEEK_FLAG_BACKWARD: 1
@@ -36,7 +36,7 @@ open class VSOptions {
      */
     public var seekFlags = Int32(1)
     // ffmpeg only cache http
-    // 这个开关不能用，因为ff_tempfile: Cannot open temporary file
+    // This switch cannot be used, because ff_tempfile: Cannot open temporary file
     public var cache = false
     //  record stream
     public var outputURL: URL?
@@ -50,7 +50,23 @@ open class VSOptions {
     public var codecLowDelay = false
     public var startPlayTime: TimeInterval = 0
     public var startPlayRate: Float = 1.0
-    public var registerRemoteControll: Bool = true // 默认支持来自系统控制中心的控制
+    public var registerRemoteControll: Bool = true // Control from the system Control Center is supported by default
+    /// The stream is paced by the server: a playlist generated per playback request, with its own
+    /// timestamp range per segment and an optional speed factor baked into the media timeline.
+    /// Video PTS are remapped onto a continuous timeline and playback is paced against wall time
+    /// instead of the main clock. Ordinary live and VOD streams must keep this `false`.
+    public var isServerPacedStream = false
+    /// Playback speed (≥1) the server applied to a `isServerPacedStream` stream: how many seconds
+    /// of source it packs into one second of media time.
+    public var streamSpeedFactor: Float = 1
+    let mediaTimelinePtsRemapper = MediaTimelinePtsRemapper()
+    var mediaTimelinePacer = MediaTimelinePacer()
+    /// Injectable for tests; playback uses the display-link time base.
+    var wallClock: () -> TimeInterval = { CACurrentMediaTime() }
+    /// Decoded frames kept per unit of stream speed (see `videoFrameMaxCount`).
+    static let speedScaledFrameQueueHeadroom = 2
+    /// Upper bound of decoded frames buffered for a speed-scaled stream, to bound memory.
+    static let maxSpeedScaledFrameQueueCount: UInt8 = 16
     public var referer: String? {
         didSet {
             if let referer {
@@ -107,25 +123,25 @@ open class VSOptions {
     public internal(set) var decodeVideoTime = 0.0
     public init() {
         formatContextOptions["user_agent"] = userAgent
-        // 参数的配置可以参考protocols.texi 和 http.c
-        // 这个一定要，不然有的流就会判断不准FieldOrder
+        // For option configuration see protocols.texi and http.c
+        // This one is required, otherwise FieldOrder is detected incorrectly for some streams
         formatContextOptions["scan_all_pmts"] = 1
-        // ts直播流需要加这个才能一直直播下去，不然播放一小段就会结束了。
+        // ts live streams need this to keep streaming, otherwise playback ends after a short while.
         formatContextOptions["reconnect"] = 1
         formatContextOptions["reconnect_streamed"] = 1
-        // 这个是用来开启http的链接复用（keep-alive）。vlc默认是打开的，所以这边也默认打开。
-        // 开启这个，百度网盘的视频链接无法播放
+        // This enables http connection reuse (keep-alive). vlc enables it by default, so it is enabled here by default too.
+        // With this enabled, Baidu Netdisk video links cannot be played
         // formatContextOptions["multiple_requests"] = 1
-        // 下面是用来处理秒开的参数，有需要的自己打开。默认不开，不然在播放某些特殊的ts直播流会频繁卡顿。
+        // The options below are for instant open, enable them yourself if needed. Disabled by default, otherwise some special ts live streams stutter frequently.
 //        formatContextOptions["auto_convert"] = 0
 //        formatContextOptions["fps_probe_size"] = 3
 //        formatContextOptions["rw_timeout"] = 10_000_000
 //        formatContextOptions["max_analyze_duration"] = 300 * 1000
-        // 默认情况下允许所有协议，只有嵌套协议才需要指定这个协议子集，例如m3u8里面有http。
+        // All protocols are allowed by default, this protocol subset is only needed for nested protocols, e.g. http inside m3u8.
 //        formatContextOptions["protocol_whitelist"] = "file,http,https,tcp,tls,crypto,async,cache,data,httpproxy"
-        // 开启这个，纯ipv6地址会无法播放。并且有些视频结束了，但还会一直尝试重连。所以这个值默认不设置
+        // With this enabled, pure ipv6 addresses cannot be played. Also some videos that have ended keep retrying to reconnect. So this value is not set by default
 //        formatContextOptions["reconnect_at_eof"] = 1
-        // 开启这个，会导致tcp Failed to resolve hostname 还会一直重试
+        // With this enabled, tcp Failed to resolve hostname occurs and it keeps retrying
 //        formatContextOptions["reconnect_on_network_error"] = 1
         // There is total different meaning for 'listen_timeout' option in rtmp
         // set 'listen_timeout' = -1 for rtmp、rtsp
@@ -161,7 +177,7 @@ open class VSOptions {
         appendHeader(["Cookie": cookieStr])
     }
 
-    // 缓冲算法函数
+    // Buffering algorithm function
     open func playable(capacitys: [CapacityProtocol], isFirst: Bool, isSeek: Bool) -> LoadingState {
         let packetCount = capacitys.map(\.packetCount).min() ?? 0
         let frameCount = capacitys.map(\.frameCount).min() ?? 0
@@ -182,7 +198,7 @@ open class VSOptions {
                 return true
             }
             if isFirst || isSeek {
-                // 让纯音频能更快的打开
+                // Let audio-only open faster
                 if capacity.mediaType == .audio || isSecondOpen {
                     if isFirst {
                         return true
@@ -233,7 +249,16 @@ open class VSOptions {
     }
 
     open func videoFrameMaxCount(fps _: Float, naturalSize _: CGSize, isLive: Bool) -> UInt8 {
-        isLive ? 4 : 16
+        let defaultCount: UInt8 = isLive ? 4 : 16
+        guard isServerPacedStream, streamSpeedFactor > 1 else {
+            return defaultCount
+        }
+        // The render loop drains this queue once per display-link tick and the decoder only
+        // refills it between ticks, so the queue size caps throughput at `capacity * ticks`
+        // frames per second. A stream scaled to Nx carries N times more frames per second,
+        // hence N frames per tick plus headroom for decode jitter.
+        let required = Int(streamSpeedFactor.rounded(.up)) * Self.speedScaledFrameQueueHeadroom
+        return UInt8(min(Int(Self.maxSpeedScaledFrameQueueCount), max(Int(defaultCount), required)))
     }
 
     open func audioFrameMaxCount(fps: Float, channelCount: Int) -> UInt8 {
@@ -254,7 +279,7 @@ open class VSOptions {
         nil
     }
 
-    // 虽然只有iOS才支持PIP。但是因为AVSampleBufferDisplayLayer能够支持HDR10+。所以默认还是推荐用AVSampleBufferDisplayLayer
+    // Although only iOS supports PIP, AVSampleBufferDisplayLayer can support HDR10+. So AVSampleBufferDisplayLayer is still recommended by default
     open func isUseDisplayLayer() -> Bool {
         display == .plane
     }
@@ -307,12 +332,12 @@ open class VSOptions {
     }
 
     /**
-            在创建解码器之前可以对VSOptions和assetTrack做一些处理。例如判断fieldOrder为tt或bb的话，那就自动加videofilters
+            Before creating the decoder you can process VSOptions and assetTrack. For example, if fieldOrder is tt or bb, videofilters are added automatically
      */
     open func process(assetTrack: some MediaPlayerTrack) {
         if assetTrack.mediaType == .video {
             if [FFmpegFieldOrder.bb, .bt, .tt, .tb].contains(assetTrack.fieldOrder) {
-                // todo 先不要用yadif_videotoolbox，不然会crash。这个后续在看下要怎么解决
+                // todo do not use yadif_videotoolbox for now, otherwise it crashes. Figure out how to solve this later
                 hardwareDecode = false
                 asynchronousDecompression = false
                 let yadif = hardwareDecode ? "yadif_videotoolbox" : "yadif"
@@ -341,8 +366,8 @@ open class VSOptions {
     open func updateVideo(refreshRate: Float, isDovi: Bool, formatDescription: CMFormatDescription?) {
         #if os(tvOS) || os(xrOS)
         /**
-         快速更改preferredDisplayCriteria，会导致isDisplayModeSwitchInProgress变成true。
-         例如退出一个视频，然后在3s内重新进入的话。所以不判断isDisplayModeSwitchInProgress了
+         Changing preferredDisplayCriteria quickly makes isDisplayModeSwitchInProgress become true.
+         For example, exiting a video and re-entering it within 3s. So isDisplayModeSwitchInProgress is not checked
          */
         guard let displayManager = UIApplication.shared.windows.first?.avDisplayManager,
               displayManager.isDisplayCriteriaMatchingEnabled
@@ -359,6 +384,22 @@ open class VSOptions {
     }
 
     open func videoClockSync(main: VSClock, nextVideoTime: TimeInterval, fps: Double, frameCount: Int) -> (Double, ClockProcessType) {
+        // A server-paced stream carries the requested speed in the media timeline itself, so media
+        // time must advance exactly with wall time at every speed. The main clock cannot be used
+        // for that: it is re-anchored to each displayed frame, which rounds every tick up to a
+        // whole frame and runs playback fast (see MediaTimelinePacer).
+        if isServerPacedStream {
+            videoClockDelayCount = 0
+            let (decision, diff) = mediaTimelinePacer.decide(frameTime: nextVideoTime, now: wallClock())
+            switch decision {
+            case .wait:
+                return (diff, .remain)
+            case .present:
+                return (diff, .next)
+            case .discard:
+                return (diff, .dropNextFrame)
+            }
+        }
         let desire = main.getTime() - videoDelay
         let diff = nextVideoTime - desire
 //        print("[video] video diff \(diff) nextVideoTime \(nextVideoTime) main \(main.time.seconds)")
@@ -462,29 +503,32 @@ public enum VideoInterlacingType: String {
 public extension VSOptions {
     static var firstPlayerType: MediaPlayerProtocol.Type = VSAVPlayer.self
     static var secondPlayerType: MediaPlayerProtocol.Type? = VSMEPlayer.self
-    /// 最低缓存视频时间
+    /// Minimum video buffer duration
     static var preferredForwardBufferDuration = 3.0
-    /// 最大缓存视频时间
+    /// Maximum video buffer duration
     static var maxBufferDuration = 30.0
-    /// 是否开启秒开
+    /// Whether to enable instant open
     static var isSecondOpen = false
-    /// 开启精确seek
+    /// Enable accurate seek
     static var isAccurateSeek = false
     /// Applies to short videos only
     static var isLoopPlay = false
-    /// 是否自动播放，默认true
+    /// Whether to auto play, true by default
     static var isAutoPlay = true
-    /// seek完是否自动播放
+    /// Whether to auto play after seek
     static var isSeekedAutoPlay = true
     static var hardwareDecode = true
-    // 默认不用自研的硬解，因为有些视频的AVPacket的pts顺序是不对的，只有解码后的AVFrame里面的pts是对的。
+    // The self-developed hardware decoding is not used by default, because for some videos the pts order of AVPacket is wrong, only the pts inside the decoded AVFrame is correct.
     static var asynchronousDecompression = false
     static var isPipPopViewController = false
     static var canStartPictureInPictureAutomaticallyFromInline = true
     static var preferredFrame = true
     static var useSystemHTTPProxy = true
-    /// 日志级别
+    /// Log level
     static var logLevel = LogLevel.warning
+    /// Enables the per-second `[rate-diag]` playback report for server-paced streams.
+    /// Kept separate from `logLevel`, which also gates FFmpeg's own (very verbose) output.
+    public static var isPlaybackRateDiagnosticsEnabled = false
     static var logger: LogHandler = OSLog(lable: "VSPlayer")
     internal static func deviceCpuCount() -> Int {
         var ncpu = UInt(0)
@@ -536,12 +580,12 @@ public extension VSOptions {
             let minChannels = min(maximumOutputNumberOfChannels, channelCount)
             #if os(tvOS) || targetEnvironment(simulator)
             if !(isUseAudioRenderer && isSpatialAudioEnabled) {
-                // 不要用maxRouteChannelsCount来判断，有可能会不准。导致多音道设备也返回2（一开始播放一个2声道，就容易出现），也不能用outputNumberOfChannels来判断，有可能会返回2
+                // Do not use maxRouteChannelsCount for the check, it may be inaccurate. It makes multichannel devices also return 2 (this happens easily when playback starts with a 2-channel track), and outputNumberOfChannels cannot be used for the check either, it may return 2
 //                channelCount = AVAudioChannelCount(min(AVAudioSession.sharedInstance().outputNumberOfChannels, maxRouteChannelsCount))
                 channelCount = minChannels
             }
             #else
-            // iOS 外放是会自动有空间音频功能，但是蓝牙耳机有可能没有空间音频功能或者把空间音频给关了，。所以还是需要处理。
+            // On iOS the speaker automatically has spatial audio, but Bluetooth headphones may not support spatial audio or may have it turned off. So it still needs to be handled.
             if !isSpatialAudioEnabled {
                 channelCount = minChannels
             }
@@ -549,7 +593,7 @@ public extension VSOptions {
         } else {
             channelCount = 2
         }
-        // 不在这里设置setPreferredOutputNumberOfChannels,因为这个方法会在获取音轨信息的时候，进行调用。
+        // setPreferredOutputNumberOfChannels is not set here, because this method is called when fetching audio track info.
         VSLog("[audio] outputNumberOfChannels: \(AVAudioSession.sharedInstance().outputNumberOfChannels) output channelCount: \(channelCount)")
         return channelCount
     }

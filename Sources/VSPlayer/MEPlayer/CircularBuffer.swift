@@ -7,8 +7,8 @@
 
 import Foundation
 
-/// 这个是单生产者，多消费者的阻塞队列和单生产者，多消费者的阻塞环形队列。并且环形队列还要有排序的能力。
-/// 因为seek需要清空队列，所以导致他是多消费者。后续可以看下能不能改成单消费者的。
+/// This is a single-producer, multi-consumer blocking queue and a single-producer, multi-consumer blocking ring buffer. The ring buffer also needs sorting capability.
+/// It is multi-consumer because seek needs to flush the queue. Later we can check whether it can be changed to single-consumer.
 public class CircularBuffer<Item: ObjectQueueItem> {
     private var _buffer = ContiguousArray<Item?>()
 //    private let semaphore = DispatchSemaphore(value: 0)
@@ -51,7 +51,7 @@ public class CircularBuffer<Item: ObjectQueueItem> {
         }
         _buffer[Int(tailIndex & mask)] = value
         if sorted {
-            // 不用sort进行排序，这个比较高效
+            // Don't use sort for sorting, this is more efficient
             var index = tailIndex
             while index > headIndex {
                 guard let item = _buffer[Int((index - 1) & mask)] else {
@@ -74,7 +74,7 @@ public class CircularBuffer<Item: ObjectQueueItem> {
                 condition.wait()
             }
         } else {
-            // 只有数据了。就signal。因为有可能这是最后的数据了。
+            // As soon as there is data, signal. Because this may be the last data.
             if _count == 1 {
                 condition.signal()
             }

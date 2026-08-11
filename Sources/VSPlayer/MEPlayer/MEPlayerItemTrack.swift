@@ -10,7 +10,7 @@ import Libavformat
 
 protocol PlayerItemTrackProtocol: CapacityProtocol, AnyObject {
     init(mediaType: AVFoundation.AVMediaType, frameCapacity: UInt8, options: VSOptions)
-    // 是否无缝循环
+    // Whether seamless looping is enabled
     var isLoopModel: Bool { get set }
     var isEndOfFile: Bool { get set }
     var delegate: CodecCapacityDelegate? { get set }
@@ -53,13 +53,13 @@ class SyncPlayerItemTrack<Frame: MEFrame>: PlayerItemTrackProtocol, CustomString
         self.options = options
         self.mediaType = mediaType
         description = mediaType.rawValue
-        // 默认缓存队列大小跟帧率挂钩,经测试除以4，最优
+        // The default buffer queue size is tied to the frame rate; testing shows dividing by 4 is optimal
         if mediaType == .audio {
             outputRenderQueue = CircularBuffer(initialCapacity: Int(frameCapacity), expanding: false)
         } else if mediaType == .video {
             outputRenderQueue = CircularBuffer(initialCapacity: Int(frameCapacity), sorted: true, expanding: false)
         } else {
-            // 有的图片字幕不按顺序来输出，所以要排序下。
+            // Some image subtitles are not output in order, so they need to be sorted.
             outputRenderQueue = CircularBuffer(initialCapacity: Int(frameCapacity), sorted: true)
         }
     }
@@ -179,7 +179,7 @@ class SyncPlayerItemTrack<Frame: MEFrame>: PlayerItemTrackProtocol, CustomString
 final class AsyncPlayerItemTrack<Frame: MEFrame>: SyncPlayerItemTrack<Frame> {
     private let operationQueue = OperationQueue()
     private var decodeOperation: BlockOperation!
-    // 无缝播放使用的PacketQueue
+    // PacketQueue used for seamless playback
     private var loopPacketQueue: CircularBuffer<Packet>?
     var packetQueue = CircularBuffer<Packet>()
     override var packetCount: Int { packetQueue.count }

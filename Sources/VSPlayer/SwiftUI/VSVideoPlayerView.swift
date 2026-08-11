@@ -65,7 +65,7 @@ public struct VSVideoPlayerView: View {
                 HStack {
                     Spacer()
                     VideoSubtitleView(model: playerCoordinator.subtitleModel)
-                        .allowsHitTesting(false) // 禁止字幕视图交互，以免抢占视图的点击事件或其它手势事件
+                        .allowsHitTesting(false) // Disable subtitle view interaction so it doesn't steal tap or other gesture events
                     Spacer()
                 }
                 .padding()
@@ -131,7 +131,7 @@ public struct VSVideoPlayerView: View {
                 if let subtitleDataSouce {
                     playerCoordinator.subtitleModel.addSubtitle(dataSouce: subtitleDataSouce)
                 }
-                // 不要加这个，不然playerCoordinator无法释放，也可以在onDisappear调用removeMonitor释放
+                // Don't add this, otherwise playerCoordinator can't be released; alternatively call removeMonitor in onDisappear to release it
                 //                    #if os(macOS)
                 //                    NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved]) {
                 //                        isMaskShow = overView
@@ -227,7 +227,7 @@ public struct VSVideoPlayerView: View {
         VStack {
             VideoControllerView(config: playerCoordinator, subtitleModel: playerCoordinator.subtitleModel, title: $title, volumeSliderSize: playerWidth / 4)
             #if !os(xrOS)
-            // 设置opacity为0，还是会去更新View。所以只能这样了
+            // Setting opacity to 0 still updates the View, so this is the only way
             if playerCoordinator.isMaskShow {
                 VideoTimeShowView(config: playerCoordinator, model: playerCoordinator.timemodel)
                     .onAppear {
@@ -630,7 +630,7 @@ private extension SubtitlePart {
                         .offset(CGSize(width: fitRect.origin.x, height: fitRect.origin.y))
                         .frame(width: fitRect.size.width, height: fitRect.size.height)
                 }
-                // 不能加scaledToFit。不然的话图片的缩放比率会有问题。
+                // Can't add scaledToFit, otherwise the image scale ratio will be wrong.
 //                .scaledToFit()
                 .padding()
             } else if let text {
@@ -656,7 +656,7 @@ private extension SubtitlePart {
                     Spacer()
                 }
             } else {
-                // 需要加这个，不然图片无法清空。感觉是 swiftUI的bug。
+                // This is needed, otherwise the image can't be cleared. Seems to be a swiftUI bug.
                 Text("")
             }
         }

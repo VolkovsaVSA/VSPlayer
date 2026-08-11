@@ -260,7 +260,7 @@ extension VSAVPlayer {
                 error = NSError(errorCode: .videoTracksUnplayable)
                 return
             }
-            // 默认选择第一个声道
+            // Select the first audio track by default
             item.tracks.filter { $0.assetTrack?.mediaType.rawValue == AVMediaType.audio.rawValue }.dropFirst().forEach { $0.isEnabled = false }
             duration = item.duration.seconds
             let estimatedDataRates = item.tracks.compactMap { $0.assetTrack?.estimatedDataRate }
@@ -340,13 +340,13 @@ extension VSAVPlayer {
         }
         loadedTimeRangesObservation = playerItem.observe(\.loadedTimeRanges) { [weak self] item, _ in
             guard let self else { return }
-            // 计算缓冲进度
+            // Calculate the buffering progress
             self.updatePlayableDuration(item: item)
         }
 
         let changeHandler: (AVPlayerItem, NSKeyValueObservedChange<Bool>) -> Void = { [weak self] _, _ in
             guard let self else { return }
-            // 在主线程更新进度
+            // Update the progress on the main thread
             if playerItem.isPlaybackBufferEmpty {
                 self.loadState = .loading
             } else if playerItem.isPlaybackLikelyToKeepUp || playerItem.isPlaybackBufferFull {
@@ -368,7 +368,7 @@ extension VSAVPlayer: MediaPlayerProtocol {
             if shouldSeekTo > 0 {
                 return TimeInterval(shouldSeekTo)
             } else {
-                // 防止卡主
+                // Prevent freezing
                 return isReadyToPlay ? player.currentTime().seconds : 0
             }
         }

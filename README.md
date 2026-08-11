@@ -84,10 +84,11 @@ see `formatContextOptions` (for example `protocol_whitelist`) to restrict or ext
 | Lifecycle | `isAutoPlay`, `isLoopPlay`, `canBackgroundPlay` |
 | Server-paced streams | `isServerPacedStream`, `streamSpeedFactor`, `isPlaybackRateDiagnosticsEnabled` |
 
-For HLS (and similar) where the **server** already packs Nx media into wall time, set
-`isServerPacedStream = true` and `streamSpeedFactor` to the server factor. The player remaps
-PTS and paces display by wall clock so effective rate stays ≈ that factor. Enable
-`isPlaybackRateDiagnosticsEnabled` for `[rate-diag]` logs while tuning.
+For HLS (and similar) where the **server** already scales media into wall time, set
+`isServerPacedStream = true` and `streamSpeedFactor` to the server factor (both fast and slow
+motion, e.g. `0.5` or `6`). The player remaps PTS and paces display by wall clock so the effective
+rate stays ≈ that factor. Enable `isPlaybackRateDiagnosticsEnabled` for `[rate-diag]` logs while
+tuning.
 
 Static helpers on `VSOptions` configure the default player stack before creating a layer or view.
 

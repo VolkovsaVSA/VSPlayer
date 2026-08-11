@@ -14,6 +14,9 @@ import Foundation
 /// queue. When the decoder cannot supply that many, media time advances slower than wall time and
 /// playback silently caps below the requested speed. The snapshot exposes both sides of that
 /// budget: how many frames were consumed and how far media time actually moved.
+///
+/// A `speedFactor` below 1 (slow motion) is reported the same way: `effectiveSpeed` stays the
+/// number of source seconds shown per wall second, so correct half-speed playback logs `0.50x`.
 struct PlaybackRateDiagnostics {
     struct Snapshot {
         let interval: TimeInterval

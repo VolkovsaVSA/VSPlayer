@@ -55,6 +55,19 @@ final class PlaybackRateDiagnosticsTests: XCTestCase {
         XCTAssertEqual(snapshot.effectiveSpeed, 6, accuracy: 0.0001)
     }
 
+    /// Slow motion: the server stretches the source, so keeping up with media time still means
+    /// `mediaRate == 1`, and the viewer sees half a source second per wall second.
+    func testSnapshot_reportsSlowMotionSpeed() throws {
+        var diagnostics = PlaybackRateDiagnostics()
+
+        _ = diagnostics.record(displayed: 0, dropped: 0, mediaTime: 0, speedFactor: 0.5, now: 0)
+        let snapshot = try XCTUnwrap(diagnostics.record(displayed: 20, dropped: 0, mediaTime: 1, speedFactor: 0.5, now: 1))
+
+        XCTAssertEqual(snapshot.mediaRate, 1, accuracy: 0.0001)
+        XCTAssertEqual(snapshot.effectiveSpeed, 0.5, accuracy: 0.0001)
+        XCTAssertTrue(snapshot.logLine.contains("effective=0.50x"), snapshot.logLine)
+    }
+
     func testRecord_startsNewWindowWithoutDoubleCounting() throws {
         var diagnostics = PlaybackRateDiagnostics()
 

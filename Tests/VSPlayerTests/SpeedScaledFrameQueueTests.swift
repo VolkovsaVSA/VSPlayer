@@ -44,6 +44,12 @@ final class SpeedScaledFrameQueueTests: XCTestCase {
         XCTAssertEqual(frameMaxCount(makeServerPacedOptions(speed: 2.5)), 6)
     }
 
+    /// Slow motion carries no extra frames per wall second, so the queue must stay shallow.
+    func testVideoFrameMaxCount_belowNormalSpeedKeepsDefault() {
+        XCTAssertEqual(frameMaxCount(makeServerPacedOptions(speed: 0.5)), 4)
+        XCTAssertEqual(frameMaxCount(makeServerPacedOptions(speed: 0.5), isLive: false), 16)
+    }
+
     /// Ordinary live and VOD playback must not be affected.
     func testVideoFrameMaxCount_liveStreamKeepsDefault() {
         let options = VSOptions()

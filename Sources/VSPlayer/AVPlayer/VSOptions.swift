@@ -56,8 +56,10 @@ open class VSOptions {
     /// Video PTS are remapped onto a continuous timeline and playback is paced against wall time
     /// instead of the main clock. Ordinary live and VOD streams must keep this `false`.
     public var isServerPacedStream = false
-    /// Playback speed (≥1) the server applied to a `isServerPacedStream` stream: how many seconds
-    /// of source it packs into one second of media time.
+    /// Playback speed the server applied to a `isServerPacedStream` stream: how many seconds of
+    /// source it packs into one second of media time. Values below 1 (slow motion) are supported;
+    /// pacing itself is speed-agnostic, the factor only sizes the decoded-frame queue and is
+    /// reported by playback diagnostics.
     public var streamSpeedFactor: Float = 1
     let mediaTimelinePtsRemapper = MediaTimelinePtsRemapper()
     var mediaTimelinePacer = MediaTimelinePacer()

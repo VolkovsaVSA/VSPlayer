@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `VSOptions.isServerPacedStream` — enable pacing for streams where the server already
   applies speed (dense Nx HLS), so wall-clock pacing matches the requested factor.
-- `VSOptions.streamSpeedFactor` — server-applied speed (≥1) used with `isServerPacedStream`.
+- `VSOptions.streamSpeedFactor` — server-applied speed used with `isServerPacedStream`; both
+  fast and slow motion (for example `0.5`).
 - `MediaTimelinePtsRemapper` — remaps discontinuous / compressed demuxer PTS onto a
   continuous media timeline.
 - `MediaTimelinePacer` — paces display against wall clock so effective rate stays ≈

@@ -82,6 +82,12 @@ see `formatContextOptions` (for example `protocol_whitelist`) to restrict or ext
 | Decode | `hardwareDecode`, `syncDecodeAudio`, `syncDecodeVideo`, `videoDisable`, `audioDisable` |
 | Filters | `videoFilters`, `audioFilters`, `autoDeInterlace`, `autoRotate` |
 | Lifecycle | `isAutoPlay`, `isLoopPlay`, `canBackgroundPlay` |
+| Server-paced streams | `isServerPacedStream`, `streamSpeedFactor`, `isPlaybackRateDiagnosticsEnabled` |
+
+For HLS (and similar) where the **server** already packs Nx media into wall time, set
+`isServerPacedStream = true` and `streamSpeedFactor` to the server factor. The player remaps
+PTS and paces display by wall clock so effective rate stays ≈ that factor. Enable
+`isPlaybackRateDiagnosticsEnabled` for `[rate-diag]` logs while tuning.
 
 Static helpers on `VSOptions` configure the default player stack before creating a layer or view.
 
@@ -113,23 +119,23 @@ Pin to an **exact version** when you need reproducible builds and controlled upg
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.1"),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.6"),
 ]
 ```
 
-Allow **patch and minor** updates within the same major line (`0.1.1` … `< 0.2.0`):
+Allow **patch and minor** updates within the same major line (`0.1.6` … `< 0.2.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.1")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.6")),
 ]
 ```
 
-Allow **minor and major** updates within the next major line (`0.1.1` … `< 1.0.0`):
+Allow **minor and major** updates within the next major line (`0.1.6` … `< 1.0.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.1")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.6")),
 ]
 ```
 
@@ -179,7 +185,7 @@ published on GitHub Releases.
 |--------|---------|
 | `main` | Stable; tagged releases |
 | `develop` | Integration branch |
-| `v0_1_1`, `v0_2`, … | Release and feature branches cut from `develop` |
+| `v-0-1-6`, `v0_2`, … | Release and feature branches cut from `develop` |
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 

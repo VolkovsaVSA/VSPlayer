@@ -111,7 +111,7 @@ class VideoSwresample: FrameChange {
             let dstFormat = dstFormat ?? format.bestPixelFormat
             pixelFormatType = dstFormat.osType()!
 //            imgConvertCtx = sws_getContext(width, height, self.format, width, height, dstFormat, SWS_FAST_BILINEAR, nil, nil, nil)
-            // AV_PIX_FMT_VIDEOTOOLBOX格式是无法进行swscale的
+            // The AV_PIX_FMT_VIDEOTOOLBOX format can not be swscaled
             imgConvertCtx = sws_getCachedContext(imgConvertCtx, width, height, self.format, dstWidth, dstHeight, dstFormat, SWS_FAST_BILINEAR, nil, nil, nil)
         }
         pool = CVPixelBufferPool.create(width: dstWidth, height: dstHeight, bytesPerRowAlignment: linesize, pixelFormatType: pixelFormatType)
@@ -256,7 +256,7 @@ class AudioSwresample: FrameChange {
         var frameBuffer = Array(tuple: avframe.pointee.data).map { UnsafePointer<UInt8>($0) }
         let channels = descriptor.outChannel.nb_channels
         var bufferSize = [Int32(0)]
-        // 返回值是有乘以声道，所以不用返回值
+        // The return value is already multiplied by the channels, so it is not used
         _ = av_samples_get_buffer_size(&bufferSize, channels, outSamples, descriptor.audioFormat.sampleFormat, 1)
         let frame = AudioFrame(dataSize: Int(bufferSize[0]), audioFormat: descriptor.audioFormat)
         frame.numberOfSamples = UInt32(swr_convert(swrContext, &frame.data, outSamples, &frameBuffer, numberOfSamples))

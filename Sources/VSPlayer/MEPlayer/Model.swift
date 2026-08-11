@@ -78,7 +78,7 @@ protocol MEFrame: ObjectQueueItem {
 
 // for MEPlayer
 public extension VSOptions {
-    /// 开启VR模式的陀飞轮
+    /// Enable the gyroscope for VR mode
     static var enableSensor = true
     static var stackSize = 65536
     static var isClearVideoWhereReplace = true
@@ -399,7 +399,7 @@ public final class AudioFrame: MEFrame {
             }
         }
         var sampleBuffer: CMSampleBuffer?
-        // 因为sampleRate跟timescale没有对齐，所以导致杂音。所以要让duration为invalid
+        // sampleRate and timescale are not aligned, which causes noise. So duration has to be invalid
 //        let duration = CMTime(value: CMTimeValue(sampleCount), timescale: CMTimeScale(audioFormat.sampleRate))
         let duration = CMTime.invalid
         let timing = CMSampleTimingInfo(duration: duration, presentationTimeStamp: cmtime, decodeTimeStamp: .invalid)
@@ -419,7 +419,7 @@ public final class AudioFrame: MEFrame {
 
 public final class VideoVTBFrame: MEFrame {
     public var timebase = Timebase.defaultValue
-    // 交叉视频的duration会不准，直接减半了
+    // The duration of interlaced video is inaccurate, it is simply halved
     public var duration: Int64 = 0
     public var position: Int64 = 0
     public var timestamp: Int64 = 0

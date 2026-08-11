@@ -193,12 +193,12 @@ public class AudioEnginePlayer: AudioOutput {
         if audioFormat.channelCount > 2 {
             nodes.append(engine.outputNode)
         }
-        // 一定要传入format，这样多音轨音响才不会有问题。
+        // The format must be passed in, otherwise multi-track audio will have problems.
         engine.connect(nodes: nodes, format: audioFormat)
         engine.prepare()
         if isRunning {
             try? engine.start()
-            // 从多声道切换到2声道马上调用start会不生效。需要异步主线程才可以
+            // Calling start immediately after switching from multi-channel to 2-channel has no effect. It must be done async on the main thread
             DispatchQueue.main.async { [weak self] in
                 self?.play()
             }
@@ -228,7 +228,7 @@ public class AudioEnginePlayer: AudioOutput {
     public func flush() {
         currentRender = nil
         #if !os(macOS)
-        // 这个要在主线程执行，如果在音频的线程，那就会有中断杂音
+        // This must run on the main thread; on the audio thread it would cause interruption noise
         outputLatency = AVAudioSession.sharedInstance().outputLatency
         #endif
     }
@@ -316,8 +316,8 @@ public class AudioEnginePlayer: AudioOutput {
             if currentPreparePosition > 0 {
                 var time = currentRender.timebase.cmtime(for: currentPreparePosition)
                 if outputLatency != 0 {
-                    /// AVSampleBufferAudioRenderer不需要处理outputLatency。其他音频输出的都要处理。
-                    /// 没有蓝牙的话，outputLatency为0.015，有蓝牙耳机的话为0.176
+                    /// AVSampleBufferAudioRenderer doesn't need to handle outputLatency. All other audio outputs do.
+                    /// Without bluetooth, outputLatency is 0.015; with bluetooth headphones it is 0.176
                     time = time - CMTime(seconds: outputLatency, preferredTimescale: time.timescale)
                 }
                 renderSource?.setAudio(time: time, position: currentRender.position)

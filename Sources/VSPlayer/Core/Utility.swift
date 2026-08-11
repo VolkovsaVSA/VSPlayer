@@ -77,9 +77,9 @@ public extension String {
         }
     }
 
-    /// 把字符串时间转为对应的秒
+    /// Convert a time string into the corresponding seconds
     /// - Parameter fromStr: srt 00:02:52,184 ass 0:30:11.56 vtt 00:00.430
-    /// - Returns: 秒
+    /// - Returns: seconds
     func parseDuration() -> TimeInterval {
         let scanner = Scanner(string: self)
 
@@ -107,7 +107,7 @@ public extension String {
 public extension UIColor {
     convenience init?(assColor: String) {
         var colorString = assColor
-        // 移除颜色字符串中的前缀 &H 和后缀 &
+        // Remove the &H prefix and & suffix from the color string
         if colorString.hasPrefix("&H") {
             colorString = String(colorString.dropFirst(2))
         }
@@ -420,7 +420,7 @@ public extension URL {
             guard let url, let response else {
                 return
             }
-            // 下载的临时文件要马上就用。不然可能会马上被清空
+            // The downloaded temp file must be used immediately, otherwise it may be deleted right away
             completion(response.suggestedFilename ?? url.lastPathComponent, url)
         }
         task.resume()
@@ -706,7 +706,7 @@ extension CGImage {
             height = max(height, Int(rect.maxY))
         }
         let bitsPerComponent = 8
-        // RGBA(的bytes) * bitsPerComponent *width
+        // RGBA(bytes) * bitsPerComponent *width
         let bytesPerRow = 4 * 8 * bitsPerComponent * width
         return autoreleasepool {
             let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: bitsPerComponent, bytesPerRow: bytesPerRow, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
@@ -802,7 +802,7 @@ extension Array {
         (self[0], self[1], self[2], self[3])
     }
 
-    // 归并排序才是稳定排序。系统默认是快排
+    // Merge sort is a stable sort. The system default is quick sort
     func mergeSortBottomUp(isOrderedBefore: (Element, Element) -> Bool) -> [Element] {
         let n = count
         var z = [self, self] // the two working arrays

@@ -304,7 +304,7 @@ open class SubtitleModel: ObservableObject {
             for datasouce in subtitleDataSouces {
                 addSubtitle(dataSouce: datasouce)
             }
-            // 要用async，不能在更新UI的时候，修改Publishe变量
+            // async has to be used, a Publishe variable can not be modified while updating the UI
             DispatchQueue.main.async { [weak self] in
                 self?.parts = []
                 self?.selectedSubtitleInfo = nil
@@ -342,7 +342,7 @@ open class SubtitleModel: ObservableObject {
                 }
             }
         }
-        // swiftUI不会判断是否相等。所以需要这边判断下。
+        // swiftUI doesn't check for equality. So it has to be checked here.
         if newParts != parts {
             for part in newParts {
                 if let text = part.text as? NSMutableAttributedString {

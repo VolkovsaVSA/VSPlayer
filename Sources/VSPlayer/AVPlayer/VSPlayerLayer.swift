@@ -79,7 +79,7 @@ open class VSPlayerLayer: NSObject {
                 }
 
                 if isPipActive {
-                    // 一定要async才不会pip之后就暂停播放
+                    // Must be async, otherwise playback pauses right after entering pip
                     DispatchQueue.main.async { [weak self] in
                         guard let self else { return }
                         pipController.start(view: self)
@@ -129,10 +129,10 @@ open class VSPlayerLayer: NSObject {
         didSet {
             let firstPlayerType: MediaPlayerProtocol.Type
             if isWirelessRouteActive {
-                // airplay的话，默认使用VSAVPlayer
+                // For airplay, use VSAVPlayer by default
                 firstPlayerType = VSAVPlayer.self
             } else if options.display != .plane {
-                // AR模式只能用VSMEPlayer
+                // AR mode can only use VSMEPlayer
                 // swiftlint:disable force_cast
                 firstPlayerType = NSClassFromString("VSPlayer.VSMEPlayer") as! MediaPlayerProtocol.Type
                 // swiftlint:enable force_cast
@@ -158,7 +158,7 @@ open class VSPlayerLayer: NSObject {
         }
     }
 
-    /// 播发器的几种状态
+    /// The player states
 
     public private(set) var state = VSPlayerState.initialized {
         willSet {
@@ -178,7 +178,7 @@ open class VSPlayerLayer: NSObject {
         }
         self.delegate?.player(layer: self, currentTime: self.player.currentPlaybackTime, totalTime: self.player.duration)
         if self.player.playbackState == .playing, self.player.loadState == .playable, self.state == .buffering {
-            // 一个兜底保护，正常不能走到这里
+            // A fallback guard, normally this should not be reached
             self.state = .bufferFinished
         }
         if self.player.isPlaying {
@@ -198,7 +198,7 @@ open class VSPlayerLayer: NSObject {
         self.delegate = delegate
         let firstPlayerType: MediaPlayerProtocol.Type
         if options.display != .plane {
-            // AR模式只能用VSMEPlayer
+            // AR mode can only use VSMEPlayer
             // swiftlint:disable force_cast
             firstPlayerType = NSClassFromString("VSPlayer.VSMEPlayer") as! MediaPlayerProtocol.Type
             // swiftlint:enable force_cast

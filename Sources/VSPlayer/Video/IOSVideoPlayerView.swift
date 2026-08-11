@@ -328,7 +328,7 @@ public class AirplayStatusView: UIView {
         airplaymessage.backgroundColor = .clear
         airplaymessage.textColor = .white
         airplaymessage.font = .systemFont(ofSize: 14)
-        airplaymessage.text = NSLocalizedString("AirPlay 投放中", comment: "")
+        airplaymessage.text = NSLocalizedString("AirPlay streaming", comment: "")
         airplaymessage.textAlignment = .center
         addSubview(airplaymessage)
         translatesAutoresizingMaskIntoConstraints = false

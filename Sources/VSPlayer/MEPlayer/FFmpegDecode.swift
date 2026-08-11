@@ -38,7 +38,7 @@ class FFmpegDecode: DecodeProtocol {
         guard let codecContext, avcodec_send_packet(codecContext, packet.corePacket) == 0 else {
             return
         }
-        // 需要avcodec_send_packet之后，properties的值才会变成FF_CODEC_PROPERTY_CLOSED_CAPTIONS
+        // properties only becomes FF_CODEC_PROPERTY_CLOSED_CAPTIONS after avcodec_send_packet
         if packet.assetTrack.mediaType == .video {
             if Int32(codecContext.pointee.properties) & FF_CODEC_PROPERTY_CLOSED_CAPTIONS != 0, packet.assetTrack.closedCaptionsTrack == nil {
                 var codecpar = AVCodecParameters()
@@ -61,7 +61,7 @@ class FFmpegDecode: DecodeProtocol {
                 var displayData: MasteringDisplayMetadata?
                 var contentData: ContentLightMetadata?
                 var ambientViewingEnvironment: AmbientViewingEnvironment?
-                // filter之后，side_data信息会丢失，所以放在这里
+                // side_data is lost after the filter, so it is handled here
                 if inputFrame.pointee.nb_side_data > 0 {
                     for i in 0 ..< inputFrame.pointee.nb_side_data {
                         if let sideData = inputFrame.pointee.side_data[Int(i)]?.pointee {
@@ -153,18 +153,28 @@ class FFmpegDecode: DecodeProtocol {
                         if frame.duration == 0, avframe.pointee.sample_rate != 0, frame.timebase.num != 0 {
                             frame.duration = Int64(avframe.pointee.nb_samples) * Int64(frame.timebase.den) / (Int64(avframe.pointee.sample_rate) * Int64(frame.timebase.num))
                         }
-                        var timestamp = avframe.pointee.best_effort_timestamp
-                        if timestamp < 0 {
-                            timestamp = avframe.pointee.pts
+                        if options.isServerPacedStream, packet.assetTrack.mediaType == .video {
+                            let remapped = options.mediaTimelinePtsRemapper.timestampForDecodedFrame(
+                                packet: packet,
+                                fallbackDuration: frame.duration
+                            )
+                            frame.timestamp = remapped.timestamp
+                            frame.duration = remapped.duration
+                            bestEffortTimestamp = remapped.timestamp &+ remapped.duration
+                        } else {
+                            var timestamp = avframe.pointee.best_effort_timestamp
+                            if timestamp < 0 {
+                                timestamp = avframe.pointee.pts
+                            }
+                            if timestamp < 0 {
+                                timestamp = avframe.pointee.pkt_dts
+                            }
+                            if timestamp < 0 {
+                                timestamp = bestEffortTimestamp
+                            }
+                            frame.timestamp = timestamp
+                            bestEffortTimestamp = timestamp &+ frame.duration
                         }
-                        if timestamp < 0 {
-                            timestamp = avframe.pointee.pkt_dts
-                        }
-                        if timestamp < 0 {
-                            timestamp = bestEffortTimestamp
-                        }
-                        frame.timestamp = timestamp
-                        bestEffortTimestamp = timestamp &+ frame.duration
                         completionHandler(.success(frame))
                     } catch {
                         completionHandler(.failure(error))
@@ -187,7 +197,7 @@ class FFmpegDecode: DecodeProtocol {
 
     func doFlushCodec() {
         bestEffortTimestamp = Int64(0)
-        // seek之后要清空下，不然解码可能还会有缓存，导致返回的数据是之前seek的。
+        // Has to be flushed after a seek, otherwise the decoder may still be buffered and return data from the previous seek.
         avcodec_flush_buffers(codecContext)
     }
 

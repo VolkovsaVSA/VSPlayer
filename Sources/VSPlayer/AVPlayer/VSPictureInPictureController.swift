@@ -41,7 +41,7 @@ public class VSPictureInPictureController: AVPictureInPictureController {
                         navigationController.viewControllers = viewControllers
                     }
                     if viewControllers.firstIndex(of: viewController) == nil {
-                        // 新的swiftUI push之后。view会变成是emptyView。所以页面就空白了。
+                        // After the new swiftUI push the view becomes emptyView, so the page is blank.
                         navigationController.pushViewController(viewController, animated: true)
                     }
                 } else {
@@ -62,7 +62,7 @@ public class VSPictureInPictureController: AVPictureInPictureController {
         delegate = view
         guard VSOptions.isPipPopViewController else {
             #if canImport(UIKit)
-            // 直接退到后台
+            // Go straight to the background
             runOnMainThread {
                 UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
             }

@@ -59,7 +59,8 @@ open class VSOptions {
     /// Playback speed the server applied to a `isServerPacedStream` stream: how many seconds of
     /// source it packs into one second of media time. Values below 1 (slow motion) are supported;
     /// pacing itself is speed-agnostic, the factor only sizes the decoded-frame queue and is
-    /// reported by playback diagnostics.
+    /// reported by playback diagnostics. On a stream that is not server-paced it changes nothing
+    /// and only labels the requested speed in the `[rate-diag]` report.
     public var streamSpeedFactor: Float = 1
     let mediaTimelinePtsRemapper = MediaTimelinePtsRemapper()
     var mediaTimelinePacer = MediaTimelinePacer()
@@ -528,7 +529,7 @@ public extension VSOptions {
     static var useSystemHTTPProxy = true
     /// Log level
     static var logLevel = LogLevel.warning
-    /// Enables the per-second `[rate-diag]` playback report for server-paced streams.
+    /// Enables the per-second `[rate-diag]` playback report for every stream, paced or not.
     /// Kept separate from `logLevel`, which also gates FFmpeg's own (very verbose) output.
     public static var isPlaybackRateDiagnosticsEnabled = false
     static var logger: LogHandler = OSLog(lable: "VSPlayer")

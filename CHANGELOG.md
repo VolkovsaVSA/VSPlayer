@@ -5,6 +5,18 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-08-12
+
+### Added
+- `[rate-diag]` reports the render-queue depth (`queued=<n>`), which separates a server that
+  compresses PTS (arrival rate rises, `mediaRate` stays ≈ 1, queue stays shallow) from a player
+  that cannot consume the incoming frames (queue keeps filling up).
+
+### Changed
+- `[rate-diag]` logging no longer requires `isServerPacedStream`; the only gate is
+  `VSOptions.isPlaybackRateDiagnosticsEnabled`, so any transport can be measured. Pacing and
+  frame-drop catch-up stay gated on `isServerPacedStream`, so playback behaviour is unchanged.
+
 ## [0.1.6] - 2026-08-11
 
 ### Added
@@ -93,6 +105,7 @@ distributed as a Swift Package.
   App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
   forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
 
+[0.1.7]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.7
 [0.1.6]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.6
 [0.1.5]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.5
 [0.1.4]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.4

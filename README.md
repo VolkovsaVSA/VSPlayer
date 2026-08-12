@@ -87,8 +87,12 @@ see `formatContextOptions` (for example `protocol_whitelist`) to restrict or ext
 For HLS (and similar) where the **server** already scales media into wall time, set
 `isServerPacedStream = true` and `streamSpeedFactor` to the server factor (both fast and slow
 motion, e.g. `0.5` or `6`). The player remaps PTS and paces display by wall clock so the effective
-rate stays ≈ that factor. Enable `isPlaybackRateDiagnosticsEnabled` for `[rate-diag]` logs while
-tuning.
+rate stays ≈ that factor.
+
+`isPlaybackRateDiagnosticsEnabled` is independent of pacing: it turns on the per-second
+`[rate-diag]` report for any stream, so an unpaced transport can be measured too. The report
+carries the requested `streamSpeedFactor`, the effective rate, the consumed / displayed / dropped
+frame rates and the render-queue depth (`queued`).
 
 Static helpers on `VSOptions` configure the default player stack before creating a layer or view.
 
@@ -120,23 +124,23 @@ Pin to an **exact version** when you need reproducible builds and controlled upg
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.6"),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.7"),
 ]
 ```
 
-Allow **patch and minor** updates within the same major line (`0.1.6` … `< 0.2.0`):
+Allow **patch and minor** updates within the same major line (`0.1.7` … `< 0.2.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.6")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.7")),
 ]
 ```
 
-Allow **minor and major** updates within the next major line (`0.1.6` … `< 1.0.0`):
+Allow **minor and major** updates within the next major line (`0.1.7` … `< 1.0.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.6")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.7")),
 ]
 ```
 

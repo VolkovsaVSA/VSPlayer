@@ -871,9 +871,10 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
         }
     }
 
-    /// Silent unless `VSOptions.isPlaybackRateDiagnosticsEnabled` is set.
-    private func logRateDiagnostics(frame: VideoVTBFrame?, droppedFrames: Int) {
-        guard VSOptions.isPlaybackRateDiagnosticsEnabled else {
+    /// Silent unless `VSOptions.isPlaybackRateDiagnosticsEnabled` is set. Independent of the
+    /// pacing mode, so any transport can be measured without changing playback.
+    private func logRateDiagnostics(frame: VideoVTBFrame?, droppedFrames: Int, queued: Int) {
+        guard PlaybackRateDiagnostics.isEnabled else {
             return
         }
         guard let snapshot = rateDiagnostics.record(
@@ -881,6 +882,7 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
             dropped: droppedFrames,
             mediaTime: frame?.seconds,
             speedFactor: Double(options.streamSpeedFactor),
+            queued: queued,
             now: CACurrentMediaTime()
         ) else {
             return
@@ -916,9 +918,11 @@ extension MEPlayerItem: OutputRenderSourceDelegate {
             }
         }
         defer {
-            if options.isServerPacedStream {
-                logRateDiagnostics(frame: frame, droppedFrames: droppedInTick)
-            }
+            logRateDiagnostics(
+                frame: frame,
+                droppedFrames: droppedInTick,
+                queued: videoTrack.outputRenderQueue.count
+            )
         }
         switch type {
         case .remain:

@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Aggregates playback counters of a server-paced HLS stream into one summary per wall second.
+/// Aggregates playback counters of any stream into one summary per wall second.
 ///
 /// A stream scaled to Nx packs `speedFactor` seconds of source into one media-second, so keeping
 /// up with it requires pulling `speedFactor * fps` frames per wall second out of the render
@@ -17,13 +17,23 @@ import Foundation
 ///
 /// A `speedFactor` below 1 (slow motion) is reported the same way: `effectiveSpeed` stays the
 /// number of source seconds shown per wall second, so correct half-speed playback logs `0.50x`.
+///
+/// `queued` separates the two ways a stream can fail to speed up: a server that compresses PTS
+/// raises the frame arrival rate while `mediaRate` stays ≈ 1 and the queue stays shallow, whereas
+/// a player that cannot consume the incoming frames shows a queue that keeps filling up.
 struct PlaybackRateDiagnostics {
+    /// Diagnostics are gated only by `VSOptions.isPlaybackRateDiagnosticsEnabled`, so any
+    /// transport can be measured, paced by the server or not.
+    static var isEnabled: Bool { VSOptions.isPlaybackRateDiagnosticsEnabled }
+
     struct Snapshot {
         let interval: TimeInterval
         let displayedFrames: Int
         let droppedFrames: Int
         let mediaSecondsAdvanced: TimeInterval
         let speedFactor: Double
+        /// Render-queue depth at the last sampled tick of the window.
+        let queued: Int
 
         var consumedFrames: Int { displayedFrames + droppedFrames }
         /// Frames pulled from the render queue per wall second — the decode throughput ceiling.
@@ -37,8 +47,8 @@ struct PlaybackRateDiagnostics {
 
         var logLine: String {
             String(
-                format: "[rate-diag] speed=%.1f effective=%.2fx mediaRate=%.2f consumed=%.1ffps displayed=%.1ffps dropped=%.1ffps window=%.2fs",
-                speedFactor, effectiveSpeed, mediaRate, consumedFPS, displayedFPS, droppedFPS, interval
+                format: "[rate-diag] speed=%.1f effective=%.2fx mediaRate=%.2f consumed=%.1ffps displayed=%.1ffps dropped=%.1ffps window=%.2fs queued=%d",
+                speedFactor, effectiveSpeed, mediaRate, consumedFPS, displayedFPS, droppedFPS, interval, queued
             )
         }
 
@@ -54,6 +64,7 @@ struct PlaybackRateDiagnostics {
     private var lastMediaTime: TimeInterval?
     private var displayedFrames = 0
     private var droppedFrames = 0
+    private var lastQueued = 0
 
     mutating func reset() {
         windowStart = nil
@@ -61,6 +72,7 @@ struct PlaybackRateDiagnostics {
         lastMediaTime = nil
         displayedFrames = 0
         droppedFrames = 0
+        lastQueued = 0
     }
 
     mutating func record(
@@ -68,14 +80,15 @@ struct PlaybackRateDiagnostics {
         dropped: Int,
         mediaTime: TimeInterval?,
         speedFactor: Double,
+        queued: Int,
         now: TimeInterval
     ) -> Snapshot? {
         guard let windowStart else {
             startWindow(at: now, mediaTime: mediaTime)
-            accumulate(displayed: displayed, dropped: dropped, mediaTime: mediaTime)
+            accumulate(displayed: displayed, dropped: dropped, mediaTime: mediaTime, queued: queued)
             return nil
         }
-        accumulate(displayed: displayed, dropped: dropped, mediaTime: mediaTime)
+        accumulate(displayed: displayed, dropped: dropped, mediaTime: mediaTime, queued: queued)
         let interval = now - windowStart
         guard interval >= Self.windowDuration else {
             return nil
@@ -85,7 +98,8 @@ struct PlaybackRateDiagnostics {
             displayedFrames: displayedFrames,
             droppedFrames: droppedFrames,
             mediaSecondsAdvanced: advancedMediaSeconds(),
-            speedFactor: speedFactor
+            speedFactor: speedFactor,
+            queued: lastQueued
         )
         startWindow(at: now, mediaTime: lastMediaTime)
         return snapshot
@@ -99,9 +113,10 @@ struct PlaybackRateDiagnostics {
         droppedFrames = 0
     }
 
-    private mutating func accumulate(displayed: Int, dropped: Int, mediaTime: TimeInterval?) {
+    private mutating func accumulate(displayed: Int, dropped: Int, mediaTime: TimeInterval?, queued: Int) {
         displayedFrames += displayed
         droppedFrames += dropped
+        lastQueued = queued
         guard let mediaTime else {
             return
         }

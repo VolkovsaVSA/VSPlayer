@@ -5,6 +5,17 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-08-13
+
+### Fixed
+- Crash (`Swift runtime failure: arithmetic overflow`) when a stream delivers absent or
+  out-of-range timestamps such as `AV_NOPTS_VALUE`, which RTSP sources do. In
+  `MediaTimelinePtsRemapper` an absent timestamp no longer anchors the next delta, and every
+  tick computation is overflow-checked and falls back to the one-frame duration.
+- Frame duration is sanitised for broken stream headers: a non-finite or out-of-range
+  `nominalFrameRate` no longer produces a `NaN` / out-of-range tick count, and the duration is
+  clamped so that the preserved-delta window stays inside `Int64`.
+
 ## [0.1.7] - 2026-08-12
 
 ### Added
@@ -105,6 +116,7 @@ distributed as a Swift Package.
   App Store validation fail when the framework was embedded via SPM. Fixed at the source in the
   forked FFmpegKit; the FFmpeg binaries are otherwise unchanged from upstream `6.1.3`.
 
+[0.1.8]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.8
 [0.1.7]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.7
 [0.1.6]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.6
 [0.1.5]: https://github.com/VolkovsaVSA/VSPlayer/releases/tag/0.1.5

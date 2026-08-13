@@ -111,6 +111,78 @@ final class MediaTimelinePtsRemapperTests: XCTestCase {
         XCTAssertEqual(remapped.duration, Int64(90_000 / 25))
     }
 
+    func testRemapPacket_absentPreviousTimestampFallsBackToOneFrame() {
+        // AV_NOPTS_VALUE as the previous reference: the delta against a valid timestamp
+        // does not fit Int64.
+        let remapper = MediaTimelinePtsRemapper()
+        let track = makeVideoTrack(timebase: Timebase(num: 1, den: 90_000), fps: 25)
+        let oneFrame = Int64(90_000 / 25)
+        let noPts = makePacket(track: track, pts: Int64.min, dts: Int64.min)
+        let valid = makePacket(track: track, pts: 1_000, dts: 1_000)
+
+        remapper.remapPacket(noPts)
+        remapper.remapPacket(valid)
+
+        XCTAssertEqual(noPts.timestamp, 0)
+        XCTAssertEqual(noPts.duration, oneFrame)
+        XCTAssertEqual(valid.timestamp, oneFrame)
+        XCTAssertEqual(valid.duration, oneFrame)
+    }
+
+    func testRemapPacket_extremeTimestampRangeStaysMonotonic() {
+        let remapper = MediaTimelinePtsRemapper()
+        let track = makeVideoTrack(timebase: Timebase(num: 1, den: 90_000), fps: 25)
+        let oneFrame = Int64(90_000 / 25)
+        let minPacket = makePacket(track: track, pts: Int64.min, dts: Int64.min)
+        let maxPacket = makePacket(track: track, pts: Int64.max, dts: Int64.max)
+        let backToNormal = makePacket(track: track, pts: 42, dts: 42)
+
+        remapper.remapPacket(minPacket)
+        remapper.remapPacket(maxPacket)
+        remapper.remapPacket(backToNormal)
+
+        XCTAssertEqual(minPacket.timestamp, 0)
+        XCTAssertEqual(maxPacket.timestamp, oneFrame)
+        XCTAssertEqual(backToNormal.timestamp, oneFrame * 2)
+        XCTAssertEqual(backToNormal.duration, oneFrame)
+    }
+
+    func testRemapPacket_alternatingGarbageAndValidTimestamps() {
+        let remapper = MediaTimelinePtsRemapper()
+        let track = makeVideoTrack(timebase: Timebase(num: 1, den: 90_000), fps: 25)
+        let oneFrame = Int64(90_000 / 25)
+        let originals: [Int64] = [
+            Int64.min, 0, Int64.min, oneFrame, Int64.max, oneFrame * 2, Int64.min, -1, Int64.min,
+        ]
+        var lastTimestamp: Int64 = -1
+        for original in originals {
+            let packet = makePacket(track: track, pts: original, dts: original)
+            remapper.remapPacket(packet)
+            XCTAssertGreaterThan(packet.timestamp, lastTimestamp, "original=\(original)")
+            XCTAssertGreaterThan(packet.duration, 0, "original=\(original)")
+            XCTAssertLessThanOrEqual(packet.duration, oneFrame * 2, "original=\(original)")
+            lastTimestamp = packet.timestamp
+        }
+        // Every delta collapses to one frame: no valid pair of consecutive timestamps survives.
+        XCTAssertEqual(lastTimestamp, oneFrame * Int64(originals.count - 1))
+    }
+
+    func testRemapPacket_hugeFrameDurationDoesNotOverflow() {
+        let remapper = MediaTimelinePtsRemapper()
+        let track = makeVideoTrack(timebase: Timebase(num: 1, den: Int32.max), fps: 0)
+        let oneFrame = Int64(Int32.max)
+        let originals: [Int64] = [Int64.min, 0, Int64.max, oneFrame, Int64.min]
+        var lastTimestamp: Int64 = -1
+        for original in originals {
+            let packet = makePacket(track: track, pts: original, dts: original)
+            remapper.remapPacket(packet)
+            XCTAssertGreaterThan(packet.timestamp, lastTimestamp, "original=\(original)")
+            XCTAssertEqual(packet.duration, oneFrame, "original=\(original)")
+            lastTimestamp = packet.timestamp
+        }
+        XCTAssertEqual(lastTimestamp, oneFrame * Int64(originals.count - 1))
+    }
+
     private func makeVideoTrack(timebase: Timebase, fps: Float) -> FFmpegAssetTrack {
         var codecpar = AVCodecParameters()
         codecpar.codec_type = AVMEDIA_TYPE_VIDEO

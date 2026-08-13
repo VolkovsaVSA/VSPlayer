@@ -8,9 +8,9 @@
 import Foundation
 import Libavcodec
 
-/// Rewrites video timestamps of a server-paced HLS stream onto a continuous media timeline.
+/// Rewrites video timestamps of a server-paced stream onto a continuous media timeline.
 ///
-/// Such a playlist is generated per playback request: every segment opens its own timestamp
+/// Such a stream is produced per playback request: every segment opens its own timestamp
 /// range, so demuxer PTS/DTS jump at segment boundaries and cannot drive the playback clock.
 ///
 /// - Time-compressed timestamps: when the server scales playback speed it packs several frames
@@ -18,12 +18,17 @@ import Libavcodec
 ///   the picture run faster. Forcing 1/fps would stretch the same frames back to 1x.
 /// - Sparse timestamps: a gap wider than a couple of frame slots is a segment discontinuity and
 ///   collapses to ~1/fps, keeping the media timeline continuous.
+/// - Absent or out-of-range timestamps: some transports deliver `AV_NOPTS_VALUE` or garbage
+///   values, which cannot anchor a delta and fall back to ~1/fps. All tick arithmetic here is
+///   overflow-checked, since such input spans the whole `Int64` range.
 ///
 /// Packets are never dropped here: discarding H.264 P-frames without their I-frame produces
 /// artifacts. The visible speed comes from the stream itself.
 final class MediaTimelinePtsRemapper: @unchecked Sendable {
     /// Deltas wider than this many frame slots are treated as segment discontinuities.
     private static let maxPreservedDeltaFrames: Int64 = 2
+    /// Keeps `oneFrame * maxPreservedDeltaFrames` inside `Int64`.
+    private static let maxFrameDurationTicks = Int64.max / maxPreservedDeltaFrames
 
     private let lock = NSLock()
     private var nextPts: Int64 = 0
@@ -65,8 +70,9 @@ final class MediaTimelinePtsRemapper: @unchecked Sendable {
         corePacket.pointee.duration = duration
         packet.timestamp = nextPts
         packet.duration = duration
-        nextPts += duration
-        lastOriginalDts = originalDts
+        advanceLocked(by: duration)
+        // An absent timestamp must not anchor the next delta.
+        lastOriginalDts = Self.isUsableTimestamp(originalDts) ? originalDts : nil
     }
 
     /// Prefer the remapped packet timeline for decoded frames: `best_effort_timestamp` may
@@ -88,20 +94,26 @@ final class MediaTimelinePtsRemapper: @unchecked Sendable {
         return (packet.timestamp, duration)
     }
 
+    /// Restarts the timeline instead of trapping if the accumulation ever leaves `Int64`.
+    private func advanceLocked(by duration: Int64) {
+        let (advanced, overflow) = nextPts.addingReportingOverflow(duration)
+        nextPts = overflow ? 0 : advanced
+    }
+
     private func durationTicksLocked(originalDts: Int64, oneFrame: Int64) -> Int64 {
-        guard let lastOriginalDts, originalDts > lastOriginalDts else {
+        guard let lastOriginalDts, Self.isUsableTimestamp(originalDts), originalDts > lastOriginalDts else {
             return oneFrame
         }
-        let delta = originalDts - lastOriginalDts
-        let maxPreserved = oneFrame * Self.maxPreservedDeltaFrames
-        if delta <= maxPreserved {
-            return max(1, delta)
+        let (delta, deltaOverflow) = originalDts.subtractingReportingOverflow(lastOriginalDts)
+        let (maxPreserved, maxPreservedOverflow) = oneFrame.multipliedReportingOverflow(by: Self.maxPreservedDeltaFrames)
+        guard !deltaOverflow, !maxPreservedOverflow, delta <= maxPreserved else {
+            return oneFrame
         }
-        return oneFrame
+        return max(1, delta)
     }
 
     private func frameDurationTicksLocked(timebase: Timebase, fps: Float) -> Int64 {
-        let safeFps = max(fps, 1)
+        let safeFps = fps.isFinite && fps > 1 ? fps : 1
         if cachedFrameDuration > 0,
            cachedTimebaseDen == timebase.den,
            cachedTimebaseNum == timebase.num,
@@ -110,11 +122,27 @@ final class MediaTimelinePtsRemapper: @unchecked Sendable {
             return cachedFrameDuration
         }
         let secondsPerFrame = 1 / Double(safeFps)
-        let ticks = Int64((secondsPerFrame * Double(timebase.den) / Double(max(timebase.num, 1))).rounded())
-        cachedFrameDuration = max(1, ticks)
+        let ticks = (secondsPerFrame * Double(timebase.den) / Double(max(timebase.num, 1))).rounded()
+        cachedFrameDuration = Self.clampToFrameDurationTicks(ticks)
         cachedTimebaseDen = timebase.den
         cachedTimebaseNum = timebase.num
         cachedFps = safeFps
         return cachedFrameDuration
+    }
+
+    /// A broken stream header can yield a non-finite or out-of-range tick count.
+    private static func clampToFrameDurationTicks(_ ticks: Double) -> Int64 {
+        guard ticks.isFinite, ticks >= 1 else {
+            return 1
+        }
+        guard ticks < Double(maxFrameDurationTicks) else {
+            return maxFrameDurationTicks
+        }
+        return Int64(ticks)
+    }
+
+    /// `AV_NOPTS_VALUE`: the demuxer reports no timestamp for this packet, which RTSP sources do.
+    private static func isUsableTimestamp(_ timestamp: Int64) -> Bool {
+        timestamp != Int64.min
     }
 }

@@ -843,10 +843,16 @@ extension MEPlayerItem: CodecCapacityDelegate {
 
 extension MEPlayerItem: OutputRenderSourceDelegate {
     func mainClock() -> VSClock {
-        if options.audioDisable || isAudioStalled {
+        switch PlaybackMasterClock.select(
+            audioDisabled: options.audioDisable,
+            serverPaced: options.isServerPacedStream,
+            audioStalled: isAudioStalled
+        ) {
+        case .video:
             return videoClock
+        case .audio:
+            return audioClock
         }
-        return audioClock
     }
 
     public func setVideo(time: CMTime, position: Int64) {

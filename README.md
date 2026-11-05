@@ -124,23 +124,23 @@ Pin to an **exact version** when you need reproducible builds and controlled upg
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.8"),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", exact: "0.1.9"),
 ]
 ```
 
-Allow **patch and minor** updates within the same major line (`0.1.8` … `< 0.2.0`):
+Allow **patch and minor** updates within the same major line (`0.1.9` … `< 0.2.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.8")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMinor(from: "0.1.9")),
 ]
 ```
 
-Allow **minor and major** updates within the next major line (`0.1.8` … `< 1.0.0`):
+Allow **minor and major** updates within the next major line (`0.1.9` … `< 1.0.0`):
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.8")),
+    .package(url: "https://github.com/VolkovsaVSA/VSPlayer", .upToNextMajor(from: "0.1.9")),
 ]
 ```
 

@@ -5,6 +5,18 @@ All notable changes to VSPlayer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-11-05
+
+### Fixed
+- Server-paced streams (`isServerPacedStream`) with an audio track drifted between the reported
+  playback position and the frame on screen. `MediaTimelinePtsRemapper` rewrites only video
+  timestamps, so the audio clock stayed on the demuxer timeline. Server-paced playback now uses
+  the video clock as the master clock while audio is still decoded and played.
+
+### Added
+- `PlaybackMasterClock` — selects the master clock: video when audio is disabled, stalled or
+  the stream is server-paced; audio otherwise.
+
 ## [0.1.8] - 2026-08-13
 
 ### Fixed
